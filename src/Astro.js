@@ -108,6 +108,28 @@ const Astro = forwardRef(function Astro(props, ref) {
 
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+  // Mouse tracking
+  useEffect(() => {
+    if (!rive || !xAxis || !yAxis) return;
+
+    const handleMouseMove = (e) => {
+      const maxWidth = window.innerWidth;
+      const maxHeight = window.innerHeight;
+      
+      // Convert mouse position to 0-100 range
+      // xAxis: 0 (left) to 100 (right)
+      // yAxis: 100 (top) to 0 (bottom) - inverted Y
+      xAxis.value = (e.x / maxWidth) * 100;
+      yAxis.value = 100 - (e.y / maxHeight) * 100;
+    };
+
+    window.addEventListener("mousemove", handleMouseMove);
+    
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+    };
+  }, [rive, xAxis, yAxis]);
+
   // Be lenient: allow visual move even if some inputs aren’t ready yet
   async function waitForInputs(timeoutMs = 5000) {
     const startT = performance.now();
@@ -130,11 +152,13 @@ const Astro = forwardRef(function Astro(props, ref) {
       shrink:      () => shrinkTrig?.fire(),
       pulse:       () => pulseTrig?.fire(),
       idle:        () => idleTrig?.fire(),
-      /** aim/head-look if your graph uses xAxis/yAxis (we pass raw pixels) */
+      /** aim/head-look if your graph uses xAxis/yAxis (normalized 0-100) */
       lookAt:      (x, y) => {
         try {
-          if (xAxis) xAxis.value = x;
-          if (yAxis) yAxis.value = y;
+          const maxWidth = window.innerWidth;
+          const maxHeight = window.innerHeight;
+          if (xAxis) xAxis.value = (x / maxWidth) * 100;
+          if (yAxis) yAxis.value = 100 - (y / maxHeight) * 100;
         } catch {}
       },
     });
@@ -150,8 +174,10 @@ const Astro = forwardRef(function Astro(props, ref) {
 
       // 0) hint Rive look-at (so the face/eyes can anticipate)
       try {
-        if (xAxis) xAxis.value = x;
-        if (yAxis) yAxis.value = y;
+        const maxWidth = window.innerWidth;
+        const maxHeight = window.innerHeight;
+        if (xAxis) xAxis.value = (x / maxWidth) * 100;
+        if (yAxis) yAxis.value = 100 - (y / maxHeight) * 100;
       } catch {}
 
       // 1) Shrink / “hide” via your SHRINK_STATE trigger
@@ -215,8 +241,10 @@ const Astro = forwardRef(function Astro(props, ref) {
       // 5) After next paint: nudge look-at & return to idle/pulse
       await new Promise((r) => requestAnimationFrame(() => r()));
       try {
-        if (xAxis) xAxis.value = x;
-        if (yAxis) yAxis.value = y;
+        const maxWidth = window.innerWidth;
+        const maxHeight = window.innerHeight;
+        if (xAxis) xAxis.value = (x / maxWidth) * 100;
+        if (yAxis) yAxis.value = 100 - (y / maxHeight) * 100;
       } catch {}
       // Choose what you want to happen on arrival:
       // - idleTrig?.fire() to settle
