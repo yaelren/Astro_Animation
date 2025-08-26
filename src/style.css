@@ -248,6 +248,10 @@ button:disabled {
   background: rgb(255, 255, 255);
   color: var(--text);
   outline: none;
+  min-height: 20px;
+  max-height: 120px; /* Allow up to ~4 lines */
+  line-height: 1.4;
+  overflow-y: auto; /* Enable scrolling if needed */
 }
 .composer textarea::placeholder {
   color: var(--muted);

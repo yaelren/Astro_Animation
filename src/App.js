@@ -105,14 +105,16 @@ export default function App() {
   };
 
   // Handle typing tracking
-  const handleChatTyping = (inputRect, text) => {
-    if (inputRect && text) {
-      const caretPosition = text.length > 0 ? text.length / 100 : 0; // Normalize to 0-1
+  const handleChatTyping = (inputRect, text, caretPosition, textLength) => {
+    if (inputRect && typeof caretPosition === 'number') {
+      // Normalize caret position to 0-1 based on text length
+      const normalizedCaretPosition = textLength > 0 ? caretPosition / textLength : 0;
+      
       astroRef.current?.onUserTyping(
         inputRect.left,
         inputRect.top + inputRect.height / 2,
         inputRect.width,
-        caretPosition
+        normalizedCaretPosition
       );
     }
   };

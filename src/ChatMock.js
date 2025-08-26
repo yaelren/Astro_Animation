@@ -46,9 +46,17 @@ export default function ChatMock({
     const newValue = e.target.value;
     setInput(newValue);
     
-    // Track typing for eye movement
+    // Auto-resize textarea based on content
+    const textarea = e.target;
+    textarea.style.height = 'auto';
+    textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
+    
+    // Track typing for eye movement with actual caret position
     const rect = inputRef.current?.getBoundingClientRect();
-    onTyping?.(rect, newValue);
+    const caretPosition = e.target.selectionStart; // Actual caret position
+    const textLength = newValue.length;
+    
+    onTyping?.(rect, newValue, caretPosition, textLength);
   };
 
   // Send message flow
@@ -63,36 +71,47 @@ export default function ChatMock({
     setMessages((m) => [...m, userMsg]);
     setInput("");
 
-    // 2. Show typing indicator
+    // 2. Move Astro to where AI message will appear (without typing indicator yet)
+    // Wait a frame for the user message to render first
+    await new Promise(r => requestAnimationFrame(r));
+    
+    // Calculate position for typing bubble (same as before)
+    const typing = listRef.current?.querySelector(".bubble.assistant:last-child") || 
+                   listRef.current?.lastElementChild;
+    const rect = typing?.getBoundingClientRect?.() || {
+      left: 300,
+      top: window.innerHeight / 2,
+      width: 400,
+      height: 50
+    };
+    
+    console.log("[ChatMock] Moving Astro to AI message position");
+    onUserSendsMessage?.(rect);
+
+    // 3. Wait for Astro to arrive at position (movement + loader animation)
+    await new Promise((r) => setTimeout(r, 2000));
+
+    // 4. Now show typing indicator (Astro is already there with loader)
+    console.log("[ChatMock] Showing typing indicator");
     setPending(true);
 
-    // 3. Move Astro to where AI message will appear
-    requestAnimationFrame(() => {
-      const typing = listRef.current?.querySelector(".bubble.assistant:last-child");
-      const rect = typing?.getBoundingClientRect?.();
-      if (rect) {
-        console.log("[ChatMock] Moving Astro to AI message position");
-        onUserSendsMessage?.(rect);
-      }
-    });
+    // 5. Simulate AI processing time (typing animation + loader running)
+    await new Promise((r) => setTimeout(r, 2000));
 
-    // 4. Simulate AI processing time (loader will be running)
-    await new Promise((r) => setTimeout(r, 1500));
-
-    // 5. AI is ready (trigger pulse)
+    // 6. AI is ready (trigger pulse while typing continues)
     console.log("[ChatMock] AI ready - triggering pulse");
     onAIReady?.();
 
-    // 6. Small delay for pulse animation
-    await new Promise((r) => setTimeout(r, 500));
+    // 7. Continue typing with pulse for a bit longer
+    await new Promise((r) => setTimeout(r, 1000));
 
-    // 7. Render AI message
+    // 8. Render AI message (hide typing, show response)
     const reply = generateReply(trimmed);
     const newMsg = { id: Date.now() + 1, role: "assistant", text: reply };
     setMessages((m) => [...m, newMsg]);
     setPending(false);
 
-    // 8. After message renders, move Astro back to chat box
+    // 9. After message renders, move Astro back to chat box
     requestAnimationFrame(() => {
       const rect = composerRef.current?.getBoundingClientRect?.();
       if (rect) {
@@ -137,6 +156,7 @@ export default function ChatMock({
           onKeyDown={onKeyDown}
           placeholder="Click here to trigger first focus, then type a message..."
           rows={1}
+          style={{ minHeight: '20px', height: '20px' }}
         />
         <button onClick={send} disabled={!input.trim() || pending}>
           {pending ? "..." : "Send"}

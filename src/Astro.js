@@ -306,7 +306,7 @@ const Astro = forwardRef(function Astro(props, ref) {
     try {
       const maxWidth = window.innerWidth;
       const maxHeight = window.innerHeight;
-      if (xAxis) xAxis.value = (x / maxWidth) * 100;
+      if (xAxis) xAxis.value = 100 - (x / maxWidth) * 100;
       if (yAxis) yAxis.value = 100 - (y / maxHeight) * 100;
     } catch {}
 
@@ -389,7 +389,7 @@ const Astro = forwardRef(function Astro(props, ref) {
     try {
       const maxWidth = window.innerWidth;
       const maxHeight = window.innerHeight;
-      if (xAxis) xAxis.value = (x / maxWidth) * 100;
+      if (xAxis) xAxis.value = 100 - (x / maxWidth) * 100;
       if (yAxis) yAxis.value = 100 - (y / maxHeight) * 100;
     } catch {}
 
@@ -449,8 +449,7 @@ const Astro = forwardRef(function Astro(props, ref) {
   const onAIMessageReady = () => {
     logStateChange(currentState, "ai-ready");
     try { 
-      bigLoadTrig?.fire(); // Stop loader
-      pulseTrig?.fire();    // Start pulse
+      pulseTrig?.fire();    // Trigger pulse
     } catch {}
   };
 
@@ -458,10 +457,9 @@ const Astro = forwardRef(function Astro(props, ref) {
     logStateChange(currentState, "returning");
     
     queueAnimation(async () => {
-      // Stop pulsing immediately
+      // Trigger idle state
       try { 
-        pulseTrig?.fire(); // Stop the pulse state
-        idleTrig?.fire();  // Set to idle while waiting
+        idleTrig?.fire();  // Set to idle
       } catch {}
       
       await sleep(TIMING.RETURN_TO_CHAT_DELAY);
@@ -487,7 +485,7 @@ const Astro = forwardRef(function Astro(props, ref) {
       const normalizedCaret = Math.min(1, Math.max(0, caretPosition));
       const actualX = inputX + (inputWidth * normalizedCaret);
       
-      xAxis.value = (actualX / maxWidth) * 100;
+      xAxis.value = 100 - (actualX / maxWidth) * 100;
       yAxis.value = 100 - (inputY / maxHeight) * 100;
       
       // Clear previous timeout
@@ -569,7 +567,7 @@ const Astro = forwardRef(function Astro(props, ref) {
       
       const maxWidth = window.innerWidth;
       const maxHeight = window.innerHeight;
-      xAxis.value = (e.x / maxWidth) * 100;
+      xAxis.value = 100 - (e.x / maxWidth) * 100;
       yAxis.value = 100 - (e.y / maxHeight) * 100;
     };
 
