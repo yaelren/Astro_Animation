@@ -230,6 +230,27 @@ const Astro = forwardRef(function Astro(props, ref) {
     setCurrentState(to);
   };
 
+  // Calculate relative mouse position based on Astro's position on screen
+  const calculateRelativeMousePosition = (mouseX, mouseY, astroX, astroY) => {
+    // Calculate the relative position of mouse to Astro's center
+    const relativeX = mouseX - astroX;
+    const relativeY = mouseY - astroY;
+    
+    // Define the range Astro can look (in pixels from his center)
+    const lookRange = 300; // Increased range for better responsiveness
+    
+    // Normalize to 0-100 range for Rive
+    // For X: mouse left of Astro = higher values (looks left), mouse right = lower values (looks right)
+    // For Y: mouse above Astro = higher values (looks up), mouse below = lower values (looks down)
+    const normalizedX = Math.max(0, Math.min(100, 50 - (relativeX / lookRange) * 50));
+    const normalizedY = Math.max(0, Math.min(100, 50 - (relativeY / lookRange) * 50));
+    
+    // Debug logging
+    console.log(`[Astro Eye Tracking] Mouse: (${mouseX}, ${mouseY}), Astro: (${astroX}, ${astroY}), Relative: (${relativeX}, ${relativeY}), Normalized: (${normalizedX.toFixed(1)}, ${normalizedY.toFixed(1)})`);
+    
+    return { x: normalizedX, y: normalizedY };
+  };
+
   // Wait for Rive to be ready
   async function waitForRive(timeoutMs = 5000) {
     const startT = performance.now();
@@ -305,12 +326,11 @@ const Astro = forwardRef(function Astro(props, ref) {
 
     const anim = currentAnimation.current;
     
-    // Update eye position to look at target
+    // Update eye position to look at target (relative to Astro's current position)
     try {
-      const maxWidth = window.innerWidth;
-      const maxHeight = window.innerHeight;
-      if (xAxis) xAxis.value = 100 - (x / maxWidth) * 100;
-      if (yAxis) yAxis.value = 100 - (y / maxHeight) * 100;
+      const relativePos = calculateRelativeMousePosition(x, y, center.x, center.y);
+      if (xAxis) xAxis.value = relativePos.x;
+      if (yAxis) yAxis.value = relativePos.y;
     } catch {}
 
     if (anim?.cancelled) return;
@@ -386,14 +406,12 @@ const Astro = forwardRef(function Astro(props, ref) {
     setCenter({ x, y });
     setRiveHidden(false);
 
-    // Update eye position after render
+    // Update eye position after render (look straight ahead at new position)
     await new Promise((r) => requestAnimationFrame(() => r()));
     
     try {
-      const maxWidth = window.innerWidth;
-      const maxHeight = window.innerHeight;
-      if (xAxis) xAxis.value = 100 - (x / maxWidth) * 100;
-      if (yAxis) yAxis.value = 100 - (y / maxHeight) * 100;
+      if (xAxis) xAxis.value = 50; // Look straight ahead when at target
+      if (yAxis) yAxis.value = 50;
     } catch {}
 
     // Apply end state if specified
@@ -493,15 +511,13 @@ const Astro = forwardRef(function Astro(props, ref) {
         clearTimeout(boredomTimeout.current);
       }
       
-      const maxWidth = window.innerWidth;
-      const maxHeight = window.innerHeight;
-      
-      // Calculate eye position based on caret
+      // Calculate eye position based on caret position relative to Astro's position
       const normalizedCaret = Math.min(1, Math.max(0, caretPosition));
       const actualX = inputX + (inputWidth * normalizedCaret);
       
-      xAxis.value = 100 - (actualX / maxWidth) * 100;
-      yAxis.value = 100 - (inputY / maxHeight) * 100;
+      const relativePos = calculateRelativeMousePosition(actualX, inputY, center.x, center.y);
+      xAxis.value = relativePos.x;
+      yAxis.value = relativePos.y;
       
       // Clear previous timeout
       if (typingTimeout.current) {
@@ -589,10 +605,13 @@ const Astro = forwardRef(function Astro(props, ref) {
       // Don't follow mouse while user is typing
       if (isTyping) return;
       
-      const maxWidth = window.innerWidth;
-      const maxHeight = window.innerHeight;
-      xAxis.value = 100 - (e.x / maxWidth) * 100;
-      yAxis.value = 100 - (e.y / maxHeight) * 100;
+      // Calculate mouse position relative to Astro's current position
+      const relativePos = calculateRelativeMousePosition(e.clientX, e.clientY, center.x, center.y);
+      xAxis.value = relativePos.x;
+      yAxis.value = relativePos.y;
+      
+      // Additional debug info
+      console.log(`[Astro] Setting eye values - xAxis: ${relativePos.x}, yAxis: ${relativePos.y}`);
       
       // Reset boredom when mouse moves
       if (isBored) {
@@ -633,7 +652,7 @@ const Astro = forwardRef(function Astro(props, ref) {
         clearTimeout(boredomTimeout.current);
       }
     };
-  }, [rive, xAxis, yAxis, isTyping, isBored]);
+  }, [rive, xAxis, yAxis, isTyping, isBored, center]);
 
   // Keep Rive container at correct position
   useEffect(() => {
