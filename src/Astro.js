@@ -19,11 +19,11 @@ const STATE_MACHINE_NAME = "Astro State Machine";
 const RIVE_STATES = {
   IDLE: "Idle",
   UNDO: "Undo",
-  IDEA_SPARK: "Idea_Spark",
+  IDEA_SPARK: "Idea _Spark",
   BOREDOM: "Boredom",
   BIG_LOADER: "Big_Loader",
   SMALL_LOADER: "Small_Loader",
-  SHRINK: "Getting Small",
+  SHRINK: "Getting_Small",
   PULSE: "Call-to-Action",
   PUBLISH: "Publish",
 };
@@ -55,11 +55,11 @@ const ANIMATION_CONFIG = {
   TRAIL_BLUR: 0.6,              // Blur amount for trail dots (in pixels)
   
   // Dot appearance
-  DOT_SIZE: 15,                 // Size of the movement dots (in pixels)
+  DOT_SIZE: 12,                 // Size of the movement dots (in pixels)
   DOT_COLOR: "#3AA0FF",         // Color of the movement dots
   
   // Motion path configuration
-  SWAY_AMOUNT: 80,              // How much the path curves
+  SWAY_AMOUNT: 100,              // How much the path curves
   CONTROL_POINT_1: 0.33,        // First bezier control point position (0-1)
   CONTROL_POINT_2: 0.66,        // Second bezier control point position (0-1)
   EASING: "cubic-bezier(0.22,1,0.36,1)", // CSS easing function
@@ -71,32 +71,32 @@ const POSITIONS = {
   // Initial position off-screen right
   OFF_SCREEN_RIGHT: () => ({
     x: window.innerWidth + 100,  // Fully off-screen to the right
-    y: window.innerHeight / 2    // Vertically centered
+    y: window.innerHeight +100    // Vertically centered
   }),
   
   // Middle of the chat area (slightly above center)
   TOP_MIDDLE: () => ({
     x: window.innerWidth / 2 - 160,  // Center of chat area (accounting for sidebar)
-    y: window.innerHeight / 2 - 50   // Middle of screen, slightly above center
+    y: window.innerHeight / 2  -50 // Middle of screen, moved higher up
   }),
   
   // Position at top-left of chat input box
   ABOVE_CHAT_BOX: (x, y) => ({
-    x: x - 30,                    // TODO: Adjust left offset from input field
-    y: y - 30                     // TODO: Adjust vertical offset above input
+    x: x +13 ,                    // TODO: Adjust left offset from input field
+    y: y - 45                     // TODO: Adjust vertical offset above input
   }),
   
   // Position near AI message bubble
   NEAR_AI_MESSAGE: (x, y) => ({
-    x: x - 30,                    // TODO: Adjust offset from message bubble
-    y: y                          // Vertically aligned with message
+    x:  x +13,                    // TODO: Adjust offset from message bubble
+    y: y+20                          // Vertically aligned with message
   }),
 };
 
 // Component Dimensions
 const ASTRO_SIZE = {
-  WIDTH: 200,                    // Width of Astro character
-  HEIGHT: 200,                   // Height of Astro character
+  WIDTH: 90,                     // Width of Astro character
+  HEIGHT: 90,                    // Height of Astro character
   Z_INDEX: 20000,                // Z-index to ensure Astro appears on top
 };
 
@@ -404,7 +404,7 @@ const Astro = forwardRef(function Astro(props, ref) {
           try { idleTrig?.fire(); } catch {}
           break;
         case 'loader':
-          try { bigLoadTrig?.fire(); } catch {}
+          try { smallLoadTrig?.fire(); } catch {}
           break;
       }
     }
@@ -673,7 +673,7 @@ const Astro = forwardRef(function Astro(props, ref) {
           width,
           height,
           zIndex: zIndex - 2,
-          pointerEvents: "none", // Ensures chat remains clickable
+          pointerEvents: "auto", // Enable mouse interactions for hover states
           opacity: riveHidden ? 0 : 1,
           transition: "opacity 80ms linear",
           transform: "translate3d(0,0,0)",

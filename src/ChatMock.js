@@ -2,8 +2,7 @@
 import React, { useState, useRef, useEffect } from "react";
 
 const STARTER = [
-  { id: 1, role: "assistant", text: "Hey! I'm Astro. Try the complete flow button above! ✨" },
-  { id: 2, role: "assistant", text: "Or type a message below to see the full animation sequence." },
+  { id: 1, role: "greeting", text: "Hey There John\nHow Can I Help You Today" },
 ];
 
 export default function ChatMock({ 
@@ -35,6 +34,8 @@ export default function ChatMock({
   const handleInputFocus = () => {
     if (!hasFirstFocus) {
       console.log("[ChatMock] First input focus detected");
+      // Remove greeting message on first focus
+      setMessages([]);
       const rect = inputRef.current?.getBoundingClientRect();
       onInputFocus?.(rect);
       setHasFirstFocus(true);
@@ -113,7 +114,7 @@ export default function ChatMock({
 
     // 9. After message renders, move Astro back to chat box
     requestAnimationFrame(() => {
-      const rect = composerRef.current?.getBoundingClientRect?.();
+      const rect = inputRef.current?.getBoundingClientRect?.();
       if (rect) {
         console.log("[ChatMock] Moving Astro back to chat box");
         onAIMessageShown?.(rect);

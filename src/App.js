@@ -154,21 +154,6 @@ export default function App() {
 
           {/* Control Panel - Right Side */}
           <aside className="control-panel">
-            {/* Movement Controls Section */}
-            <div className="control-section">
-              <h3>🎯 Movement Functions</h3>
-              <div className="button-stack">
-                <button onClick={handleChatOpen}>Chat Open</button>
-                <button onClick={handleFirstInputFocus}>First Focus</button>
-                <button onClick={handleUserSendsMessage}>User Sends</button>
-                <button onClick={handleAIReady}>AI Ready</button>
-                <button onClick={handleAIMessageShown}>AI Shown</button>
-                <button className="flow-button" onClick={handleCompleteFlow}>
-                  ▶️ Complete Flow
-                </button>
-              </div>
-            </div>
-
             {/* Rive State Controls Section */}
             <div className="control-section">
               <h3>✨ Rive States</h3>
@@ -182,24 +167,6 @@ export default function App() {
                 <button onClick={() => astroRef.current?.triggerIdeaSpark()}>Idea Spark</button>
                 <button onClick={() => astroRef.current?.triggerBoredom()}>Boredom</button>
                 <button onClick={() => astroRef.current?.triggerShrink()}>Shrink</button>
-              </div>
-            </div>
-
-            {/* Utility Controls */}
-            <div className="control-section">
-              <h3>🔧 Utilities</h3>
-              <div className="button-stack">
-                <button onClick={() => astroRef.current?.cancelAnimations()}>
-                  Cancel Animations
-                </button>
-                <button onClick={() => {
-                  const x = Math.random() * window.innerWidth;
-                  const y = Math.random() * window.innerHeight;
-                  astroRef.current?.moveTo(x, y);
-                  console.log(`[Demo] Moving to random position (${Math.round(x)}, ${Math.round(y)})`);
-                }}>
-                  Random Position
-                </button>
               </div>
             </div>
           </aside>
