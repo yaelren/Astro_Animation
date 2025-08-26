@@ -1,72 +1,207 @@
-import React, { useRef } from "react";
+import React, { useRef, useEffect, useState } from "react";
 import Astro from "./Astro";
 import ChatMock from "./ChatMock";
 
 export default function App() {
   const astroRef = useRef(null);
-  const controlsRef = useRef({
-    publish: () => {},
-    undo: () => {},
-    gettingSmall: () => {},
-    loader: () => {},
-    shrink: () => {},
-  });
+  const [isFirstFocus, setIsFirstFocus] = useState(true);
 
-  // helpers: move Astro to top-left of a rect
-  const moveAstroToRect = (rect) => {
-    if (!rect) return;
-    astroRef.current?.moveTo(rect.left, rect.top);
+  // ========== LIFECYCLE HANDLERS ==========
+  
+  // Simulate chat opening
+  const handleChatOpen = () => {
+    astroRef.current?.onChatOpen();
   };
 
-  const moveAstroToComposer = (composerRect) => {
-    if (!composerRect) return;
-    astroRef.current?.moveTo(composerRect.left, composerRect.top);
+  // Simulate first input focus
+  const handleFirstInputFocus = () => {
+    // Using left side of where input would be positioned
+    // In production, this would be the actual input field position
+    const x = window.innerWidth / 2 - 300; // Left side of centered chat
+    const y = window.innerHeight - 150; // Near bottom for chat input
+    astroRef.current?.onFirstInputFocus(x, y);
   };
+
+  // Simulate user sending message
+  const handleUserSendsMessage = () => {
+    // Example AI message position (left side of chat)
+    const x = 300;
+    const y = window.innerHeight / 2;
+    astroRef.current?.onUserSendsMessage(x, y);
+  };
+
+  // Simulate AI ready signal
+  const handleAIReady = () => {
+    astroRef.current?.onAIMessageReady();
+  };
+
+  // Simulate AI message shown
+  const handleAIMessageShown = () => {
+    // Return to chat box position (top-left of input)
+    const x = window.innerWidth / 2 - 300; // Left side of centered chat
+    const y = window.innerHeight - 150;
+    astroRef.current?.onAIMessageShown(x, y);
+  };
+
+  // Simulate complete flow
+  const handleCompleteFlow = async () => {
+    console.log("[Demo] Starting complete chat flow simulation");
+    
+    // 1. Open chat
+    handleChatOpen();
+    await new Promise(r => setTimeout(r, 2000));
+    
+    // 2. First focus
+    handleFirstInputFocus();
+    await new Promise(r => setTimeout(r, 1500));
+    
+    // 3. Send message
+    handleUserSendsMessage();
+    await new Promise(r => setTimeout(r, 2000));
+    
+    // 4. AI ready
+    handleAIReady();
+    await new Promise(r => setTimeout(r, 1500));
+    
+    // 5. Show message and return
+    handleAIMessageShown();
+    
+    console.log("[Demo] Complete flow finished");
+  };
+
+  // ========== CHAT INTEGRATION ==========
+  
+  // Handle first focus from real chat input
+  const handleChatInputFocus = (rect) => {
+    if (isFirstFocus && rect) {
+      const x = rect.left;  // Left edge of input field
+      const y = rect.top;   // Top edge of input field
+      astroRef.current?.onFirstInputFocus(x, y);
+      setIsFirstFocus(false);
+    }
+  };
+
+  // Handle message send from chat
+  const handleChatMessageSent = (aiMessageRect) => {
+    if (aiMessageRect) {
+      const x = aiMessageRect.left;
+      const y = aiMessageRect.top + aiMessageRect.height / 2;
+      astroRef.current?.onUserSendsMessage(x, y);
+    }
+  };
+
+  // Handle AI ready (simulate delay)
+  const handleChatAIReady = () => {
+    astroRef.current?.onAIMessageReady();
+  };
+
+  // Handle AI message shown
+  const handleChatAIShown = (chatBoxRect) => {
+    if (chatBoxRect) {
+      const x = chatBoxRect.left;  // Left edge of input field
+      const y = chatBoxRect.top;   // Top edge of input field
+      astroRef.current?.onAIMessageShown(x, y);
+    }
+  };
+
+  // Handle typing tracking
+  const handleChatTyping = (inputRect, text) => {
+    if (inputRect && text) {
+      const caretPosition = text.length > 0 ? text.length / 100 : 0; // Normalize to 0-1
+      astroRef.current?.onUserTyping(
+        inputRect.left,
+        inputRect.top + inputRect.height / 2,
+        inputRect.width,
+        caretPosition
+      );
+    }
+  };
+
+  // Auto-trigger chat open on mount
+  useEffect(() => {
+    // Wait a moment for everything to load
+    setTimeout(() => {
+      handleChatOpen();
+    }, 500);
+  }, []);
 
   return (
     <div className="app">
       {/* Astro floats above UI, never intercepts clicks */}
-      <Astro
-        ref={astroRef}
-        initialX={260}
-        initialY={260}
-        zIndex={20000}
-        onReady={(controls) => (controlsRef.current = controls)}
-      />
+      <Astro ref={astroRef} />
 
       <div className="ui-root" data-ui-root>
         <header className="app-header">
           <div className="brand">
-            <span className="dot" /> Astro Sandbox
-          </div>
-          <div className="controls">
-            <button onClick={() => controlsRef.current.publish()}>Publish</button>
-            <button onClick={() => controlsRef.current.undo()}>Undo</button>
-            <button onClick={() => controlsRef.current.shrink()}>Small</button>
-            <button onClick={() => controlsRef.current.loader()}>Loader</button>
-            <button onClick={() => controlsRef.current.shrink()}>Toggle Scale</button>
+            <span className="dot" /> Astro Demo - Complete Integration Example
           </div>
         </header>
 
-        <main className="chat-layout">
-          <ChatMock
-            // when user sends → move to where assistant will type
-            onAssistantSpot={moveAstroToRect}
-            // after assistant renders → wait 1s then move back to composer
-            onAssistantDone={(composerRect) => {
-              setTimeout(() => moveAstroToComposer(composerRect), 1000);
-            }}
-            // (optional) keep your keyword triggers
-            onSend={(msg) => {
-              const t = msg.toLowerCase();
-              if (t.includes("publish")) controlsRef.current.publish();
-              else if (t.includes("undo")) controlsRef.current.undo();
-              else if (t.includes("small")) controlsRef.current.gettingSmall();
-              else if (t.includes("load")) controlsRef.current.loader();
-              else controlsRef.current.shrink();
-            }}
-          />
-        </main>
+        <div className="main-layout">
+          {/* Chat Interface */}
+          <main className="chat-layout">
+            <ChatMock
+              onInputFocus={handleChatInputFocus}
+              onUserSendsMessage={handleChatMessageSent}
+              onAIReady={handleChatAIReady}
+              onAIMessageShown={handleChatAIShown}
+              onTyping={handleChatTyping}
+              astroRef={astroRef}
+            />
+          </main>
+
+          {/* Control Panel - Right Side */}
+          <aside className="control-panel">
+            {/* Movement Controls Section */}
+            <div className="control-section">
+              <h3>🎯 Movement Functions</h3>
+              <div className="button-stack">
+                <button onClick={handleChatOpen}>Chat Open</button>
+                <button onClick={handleFirstInputFocus}>First Focus</button>
+                <button onClick={handleUserSendsMessage}>User Sends</button>
+                <button onClick={handleAIReady}>AI Ready</button>
+                <button onClick={handleAIMessageShown}>AI Shown</button>
+                <button className="flow-button" onClick={handleCompleteFlow}>
+                  ▶️ Complete Flow
+                </button>
+              </div>
+            </div>
+
+            {/* Rive State Controls Section */}
+            <div className="control-section">
+              <h3>✨ Rive States</h3>
+              <div className="button-stack">
+                <button onClick={() => astroRef.current?.triggerIdle()}>Idle</button>
+                <button onClick={() => astroRef.current?.triggerPulse()}>Pulse</button>
+                <button onClick={() => astroRef.current?.triggerBigLoader()}>Big Loader</button>
+                <button onClick={() => astroRef.current?.triggerSmallLoader()}>Small Loader</button>
+                <button onClick={() => astroRef.current?.triggerPublish()}>Publish</button>
+                <button onClick={() => astroRef.current?.triggerUndo()}>Undo</button>
+                <button onClick={() => astroRef.current?.triggerIdeaSpark()}>Idea Spark</button>
+                <button onClick={() => astroRef.current?.triggerBoredom()}>Boredom</button>
+                <button onClick={() => astroRef.current?.triggerShrink()}>Shrink</button>
+              </div>
+            </div>
+
+            {/* Utility Controls */}
+            <div className="control-section">
+              <h3>🔧 Utilities</h3>
+              <div className="button-stack">
+                <button onClick={() => astroRef.current?.cancelAnimations()}>
+                  Cancel Animations
+                </button>
+                <button onClick={() => {
+                  const x = Math.random() * window.innerWidth;
+                  const y = Math.random() * window.innerHeight;
+                  astroRef.current?.moveTo(x, y);
+                  console.log(`[Demo] Moving to random position (${Math.round(x)}, ${Math.round(y)})`);
+                }}>
+                  Random Position
+                </button>
+              </div>
+            </div>
+          </aside>
+        </div>
       </div>
     </div>
   );

@@ -7,282 +7,644 @@ import React, {
 } from "react";
 import { useRive, useStateMachineInput } from "@rive-app/react-canvas";
 
-/** ===== Rive setup (your new names) ===== */
+// ========================================
+// ========== CONFIGURATION ==============
+// ========================================
+
+// Rive File and State Machine Configuration
+const RIVE_FILE = "astro_master_(25).riv";
 const STATE_MACHINE_NAME = "Astro State Machine";
-const RIVE_FILE = "astro_master.riv";
-const IDLE_STATE = "Idle";
-const UNDO_STATE = "Undo";
-const IDEA_SPARK_STATE = "Idea_Spark";
-const BORDEOM_STATE = "Bordeom";
-const BIG_LOAD_STATE = "Big_Loader";
-const SMALL_LOADE_STATE = "Small_Loader";
-const SHRINK_STATE = "Getting Small";
-const PLUSE_STATE = "Call-to-Action";
-const PUBLISH_STATE = "Publish";
-const MOUSE_X = "xAxis";
-const MOUSE_Y = "yAxis";
 
-/** =================== Animation Tuning =================== */
-const ANIM = {
-  shrinkMs: 450,
-  delayBeforeMoveMs: 400,
-  travelMs: 1000,
-  sway: 80,
-  cp1: 0.33,
-  cp2: 0.66,
-  easing: "cubic-bezier(0.22,1,0.36,1)",
-  dotSize: 15,
-  dotColor: "#3AA0FF",
-  trailCount: 19,
-  trailStaggerMs: 1.5,
-  trailFade: 0.25,
-  trailMinScale: 0.9,
-  trailBlurPx: 0.6,
+// Rive State Names (these must match your Rive file exactly)
+const RIVE_STATES = {
+  IDLE: "Idle",
+  UNDO: "Undo",
+  IDEA_SPARK: "Idea_Spark",
+  BOREDOM: "Boredom",
+  BIG_LOADER: "Big_Loader",
+  SMALL_LOADER: "Small_Loader",
+  SHRINK: "Getting Small",
+  PULSE: "Call-to-Action",
+  PUBLISH: "Publish",
 };
-/** ======================================================== */
 
-/** Motion-path helpers (with Safari prefixes) */
+// Rive Input Names for eye tracking
+const RIVE_INPUTS = {
+  MOUSE_X: "xAxis",
+  MOUSE_Y: "yAxis",
+};
+
+// Animation Timing Configuration (in milliseconds)
+// TODO: Wire these to your production configuration
+const TIMING = {
+  SHRINK_DURATION: 450,        // Time for Astro to shrink before moving
+  TRAVEL_DURATION: 1000,        // Time for Astro to travel between positions
+  DELAY_BEFORE_MOVE: 400,       // Pause after shrinking before starting movement
+  RETURN_TO_CHAT_DELAY: 500,   // Wait time before returning to chat box
+  DEBOUNCE_DELAY: 100,          // Debounce for preventing rapid triggers
+  ANIMATION_FRAME_DELAY: 16,    // Single frame delay (60fps)
+};
+
+// Visual Animation Configuration
+const ANIMATION_CONFIG = {
+  // Trail effect configuration
+  TRAIL_COUNT: 19,              // Number of dots in the trail
+  TRAIL_STAGGER: 1.5,           // Milliseconds between each trail dot
+  TRAIL_FADE: 0.25,             // Minimum opacity for trail dots
+  TRAIL_MIN_SCALE: 0.9,         // Minimum scale for trail dots
+  TRAIL_BLUR: 0.6,              // Blur amount for trail dots (in pixels)
+  
+  // Dot appearance
+  DOT_SIZE: 15,                 // Size of the movement dots (in pixels)
+  DOT_COLOR: "#3AA0FF",         // Color of the movement dots
+  
+  // Motion path configuration
+  SWAY_AMOUNT: 80,              // How much the path curves
+  CONTROL_POINT_1: 0.33,        // First bezier control point position (0-1)
+  CONTROL_POINT_2: 0.66,        // Second bezier control point position (0-1)
+  EASING: "cubic-bezier(0.22,1,0.36,1)", // CSS easing function
+};
+
+// Layout Position Configuration
+// TODO: Replace these with your actual layout positions
+const POSITIONS = {
+  // Initial position off-screen right
+  OFF_SCREEN_RIGHT: () => ({
+    x: window.innerWidth + 100,  // Fully off-screen to the right
+    y: window.innerHeight / 2    // Vertically centered
+  }),
+  
+  // Middle of the chat area (slightly above center)
+  TOP_MIDDLE: () => ({
+    x: window.innerWidth / 2 - 160,  // Center of chat area (accounting for sidebar)
+    y: window.innerHeight / 2 - 50   // Middle of screen, slightly above center
+  }),
+  
+  // Position at top-left of chat input box
+  ABOVE_CHAT_BOX: (x, y) => ({
+    x: x - 30,                    // TODO: Adjust left offset from input field
+    y: y - 30                     // TODO: Adjust vertical offset above input
+  }),
+  
+  // Position near AI message bubble
+  NEAR_AI_MESSAGE: (x, y) => ({
+    x: x - 30,                    // TODO: Adjust offset from message bubble
+    y: y                          // Vertically aligned with message
+  }),
+};
+
+// Component Dimensions
+const ASTRO_SIZE = {
+  WIDTH: 200,                    // Width of Astro character
+  HEIGHT: 200,                   // Height of Astro character
+  Z_INDEX: 20000,                // Z-index to ensure Astro appears on top
+};
+
+// ========================================
+// ========== HELPER FUNCTIONS ===========
+// ========================================
+
+// Motion path helpers with Safari prefix support
 function setMotionPath(el, d) {
   el.style.offsetPath = `path("${d}")`;
   el.style.webkitOffsetPath = `path("${d}")`;
 }
+
 function setOffsetDistance(el, v) {
   el.style.offsetDistance = v;
   el.style.webkitOffsetDistance = v;
 }
+
 function setOffsetRotate(el, v) {
   el.style.offsetRotate = v;
   el.style.webkitOffsetRotate = v;
 }
+
 function setOffsetAnchor(el, v) {
   el.style.offsetAnchor = v;
   el.style.webkitOffsetAnchor = v;
 }
-function buildPathD(start, end, sway = ANIM.sway, t1 = ANIM.cp1, t2 = ANIM.cp2) {
-  const dx = end.x - start.x, dy = end.y - start.y;
+
+// Build a curved bezier path between two points
+function buildPathD(start, end) {
+  const dx = end.x - start.x;
+  const dy = end.y - start.y;
   const len = Math.max(1, Math.hypot(dx, dy));
-  const nx = -dy / len, ny = dx / len;
-  const c1x = start.x + dx * t1 + nx * sway;
-  const c1y = start.y + dy * t1 + ny * sway;
-  const c2x = start.x + dx * t2 - nx * (sway * 0.65);
-  const c2y = start.y + dy * t2 - ny * (sway * 0.65);
+  const nx = -dy / len;
+  const ny = dx / len;
+  
+  // Add some randomness to make movements feel natural
+  const sway = ANIMATION_CONFIG.SWAY_AMOUNT * (0.85 + Math.random() * 0.3);
+  
+  // Calculate control points for bezier curve
+  const c1x = start.x + dx * ANIMATION_CONFIG.CONTROL_POINT_1 + nx * sway;
+  const c1y = start.y + dy * ANIMATION_CONFIG.CONTROL_POINT_1 + ny * sway;
+  const c2x = start.x + dx * ANIMATION_CONFIG.CONTROL_POINT_2 - nx * (sway * 0.65);
+  const c2y = start.y + dy * ANIMATION_CONFIG.CONTROL_POINT_2 - ny * (sway * 0.65);
+  
   return `M ${start.x},${start.y} C ${c1x},${c1y} ${c2x},${c2y} ${end.x},${end.y}`;
 }
 
+// ========================================
+// ========== MAIN COMPONENT =============
+// ========================================
+
 const Astro = forwardRef(function Astro(props, ref) {
   const {
-    width = 200,
-    height = 200,
-    initialX = 240,
-    initialY = 240,
-    zIndex = 20000,
+    width = ASTRO_SIZE.WIDTH,
+    height = ASTRO_SIZE.HEIGHT,
+    initialX = POSITIONS.OFF_SCREEN_RIGHT().x,
+    initialY = POSITIONS.OFF_SCREEN_RIGHT().y,
+    zIndex = ASTRO_SIZE.Z_INDEX,
     onReady,
   } = props;
 
+  // ========== STATE MANAGEMENT ==========
+  const [center, setCenter] = useState({ x: initialX, y: initialY });
+  const [riveHidden, setRiveHidden] = useState(false);
+  const [currentState, setCurrentState] = useState("idle");
+  const [isTyping, setIsTyping] = useState(false);
+  
+  // ========== REFS ==========
   const wrapperRef = useRef(null);
   const leadDotRef = useRef(null);
   const trailRefs = useRef([]);
-  const [center, setCenter] = useState({ x: initialX, y: initialY });
-  const [riveHidden, setRiveHidden] = useState(false);
+  const isFirstFocus = useRef(true);
+  const animationQueue = useRef([]);
+  const isAnimating = useRef(false);
+  const currentAnimation = useRef(null);
+  const animationDebounce = useRef(null);
+  const typingTimeout = useRef(null);
 
-  // --- Rive instance ---
+  // ========== RIVE SETUP ==========
   const { rive, RiveComponent } = useRive({
     src: RIVE_FILE,
     stateMachines: STATE_MACHINE_NAME,
     autoplay: true,
+    onLoad: () => {
+      console.log("[Astro] Rive file loaded successfully:", RIVE_FILE);
+    },
+    onLoadError: (error) => {
+      console.error("[Astro] Rive file failed to load:", RIVE_FILE, error);
+    },
   });
 
-  // --- Inputs (triggers / numbers) ---
-  const idleTrig      = useStateMachineInput(rive, STATE_MACHINE_NAME, IDLE_STATE);
-  const undoTrig      = useStateMachineInput(rive, STATE_MACHINE_NAME, UNDO_STATE);
-  const ideaTrig      = useStateMachineInput(rive, STATE_MACHINE_NAME, IDEA_SPARK_STATE);
-  const boredTrig     = useStateMachineInput(rive, STATE_MACHINE_NAME, BORDEOM_STATE);
-  const bigLoadTrig   = useStateMachineInput(rive, STATE_MACHINE_NAME, BIG_LOAD_STATE);
-  const smallLoadTrig = useStateMachineInput(rive, STATE_MACHINE_NAME, SMALL_LOADE_STATE);
-  const shrinkTrig    = useStateMachineInput(rive, STATE_MACHINE_NAME, SHRINK_STATE);
-  const pulseTrig     = useStateMachineInput(rive, STATE_MACHINE_NAME, PLUSE_STATE);
-  const publishTrig   = useStateMachineInput(rive, STATE_MACHINE_NAME, PUBLISH_STATE);
+  // Get all Rive state triggers
+  const idleTrig = useStateMachineInput(rive, STATE_MACHINE_NAME, RIVE_STATES.IDLE);
+  const undoTrig = useStateMachineInput(rive, STATE_MACHINE_NAME, RIVE_STATES.UNDO);
+  const ideaTrig = useStateMachineInput(rive, STATE_MACHINE_NAME, RIVE_STATES.IDEA_SPARK);
+  const boredTrig = useStateMachineInput(rive, STATE_MACHINE_NAME, RIVE_STATES.BOREDOM);
+  const bigLoadTrig = useStateMachineInput(rive, STATE_MACHINE_NAME, RIVE_STATES.BIG_LOADER);
+  const smallLoadTrig = useStateMachineInput(rive, STATE_MACHINE_NAME, RIVE_STATES.SMALL_LOADER);
+  const shrinkTrig = useStateMachineInput(rive, STATE_MACHINE_NAME, RIVE_STATES.SHRINK);
+  const pulseTrig = useStateMachineInput(rive, STATE_MACHINE_NAME, RIVE_STATES.PULSE);
+  const publishTrig = useStateMachineInput(rive, STATE_MACHINE_NAME, RIVE_STATES.PUBLISH);
 
-  const xAxis = useStateMachineInput(rive, STATE_MACHINE_NAME, MOUSE_X);
-  const yAxis = useStateMachineInput(rive, STATE_MACHINE_NAME, MOUSE_Y);
+  // Get eye tracking inputs
+  const xAxis = useStateMachineInput(rive, STATE_MACHINE_NAME, RIVE_INPUTS.MOUSE_X);
+  const yAxis = useStateMachineInput(rive, STATE_MACHINE_NAME, RIVE_INPUTS.MOUSE_Y);
 
+  // Debug Rive state
+  useEffect(() => {
+    if (rive) {
+      console.log("[Astro] Rive instance ready");
+      console.log("[Astro] Available state machines:", rive.stateMachineNames);
+    }
+  }, [rive]);
+
+  useEffect(() => {
+    if (xAxis && yAxis) {
+      console.log("[Astro] Eye tracking inputs ready");
+    }
+  }, [xAxis, yAxis]);
+
+  // ========== UTILITY FUNCTIONS ==========
+  
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-  // Mouse tracking
+  const logStateChange = (from, to) => {
+    console.log(`[Astro] State: ${from} → ${to}`);
+    setCurrentState(to);
+  };
+
+  // Wait for Rive to be ready
+  async function waitForRive(timeoutMs = 5000) {
+    const startT = performance.now();
+    while (!rive && performance.now() - startT < timeoutMs) {
+      await sleep(TIMING.ANIMATION_FRAME_DELAY);
+    }
+    return !!rive;
+  }
+
+  // ========== ANIMATION QUEUE MANAGEMENT ==========
+  
+  const cancelCurrentAnimation = () => {
+    if (currentAnimation.current) {
+      currentAnimation.current.cancelled = true;
+      currentAnimation.current = null;
+    }
+  };
+
+  const processAnimationQueue = async () => {
+    if (isAnimating.current || animationQueue.current.length === 0) return;
+    
+    isAnimating.current = true;
+    const nextAnim = animationQueue.current.shift();
+    
+    if (nextAnim) {
+      currentAnimation.current = nextAnim;
+      try {
+        await nextAnim.fn();
+      } catch (err) {
+        console.error("[Astro] Animation error:", err);
+      } finally {
+        currentAnimation.current = null;
+        isAnimating.current = false;
+        processAnimationQueue();
+      }
+    } else {
+      isAnimating.current = false;
+    }
+  };
+
+  const queueAnimation = (fn, options = {}) => {
+    if (options.cancelPrevious) {
+      cancelCurrentAnimation();
+      animationQueue.current = [];
+    }
+    
+    if (options.debounce) {
+      if (animationDebounce.current) {
+        clearTimeout(animationDebounce.current);
+      }
+      animationDebounce.current = setTimeout(() => {
+        animationQueue.current.push({ fn, cancelled: false });
+        processAnimationQueue();
+      }, options.debounce);
+    } else {
+      animationQueue.current.push({ fn, cancelled: false });
+      processAnimationQueue();
+    }
+  };
+
+  // ========== CORE MOVEMENT FUNCTION ==========
+  
+  async function moveToPosition(x, y, options = {}) {
+    if (!x || !y) {
+      console.log("[Astro] Invalid position, skipping animation");
+      return;
+    }
+
+    await waitForRive();
+    
+    const lead = leadDotRef.current;
+    if (!lead) return;
+
+    const anim = currentAnimation.current;
+    
+    // Update eye position to look at target
+    try {
+      const maxWidth = window.innerWidth;
+      const maxHeight = window.innerHeight;
+      if (xAxis) xAxis.value = (x / maxWidth) * 100;
+      if (yAxis) yAxis.value = 100 - (y / maxHeight) * 100;
+    } catch {}
+
+    if (anim?.cancelled) return;
+
+    // Trigger shrink animation
+    logStateChange(currentState, "shrinking");
+    try { shrinkTrig?.fire(); } catch {}
+    await sleep(TIMING.SHRINK_DURATION);
+    
+    if (anim?.cancelled) return;
+
+    // Hide Rive and show trail dots
+    setRiveHidden(true);
+    const start = { x: center.x, y: center.y };
+    const end = { x, y };
+
+    // Setup lead dot
+    lead.style.opacity = "1";
+    
+    // Setup trail dots with gradient effect
+    trailRefs.current.forEach((d, i) => {
+      if (!d) return;
+      const ratio = (i + 1) / ANIMATION_CONFIG.TRAIL_COUNT;
+      const scale = ANIMATION_CONFIG.TRAIL_MIN_SCALE + (1 - ANIMATION_CONFIG.TRAIL_MIN_SCALE) * (1 - ratio);
+      const opacity = ANIMATION_CONFIG.TRAIL_FADE + (1 - ANIMATION_CONFIG.TRAIL_FADE) * (1 - ratio);
+      d.style.opacity = String(opacity);
+      d.style.transform = `scale(${scale})`;
+    });
+
+    await sleep(TIMING.DELAY_BEFORE_MOVE);
+    
+    if (anim?.cancelled) return;
+
+    // Create curved path
+    const pathD = buildPathD(start, end);
+
+    // Prepare dots for animation
+    const prepDot = (el) => {
+      if (!el) return;
+      setMotionPath(el, pathD);
+      setOffsetDistance(el, "0%");
+      setOffsetRotate(el, "0deg");
+      setOffsetAnchor(el, "50% 50%");
+    };
+    
+    prepDot(lead);
+    trailRefs.current.forEach((td) => td && prepDot(td));
+
+    // Animate lead dot
+    const leadAnim = lead.animate(
+      [{ offsetDistance: "0%" }, { offsetDistance: "100%" }],
+      { duration: TIMING.TRAVEL_DURATION, easing: ANIMATION_CONFIG.EASING, fill: "forwards" }
+    );
+
+    // Animate trail dots with stagger
+    trailRefs.current.forEach((td, i) => {
+      if (!td) return;
+      td.animate([{ offsetDistance: "0%" }, { offsetDistance: "100%" }], {
+        duration: TIMING.TRAVEL_DURATION,
+        delay: (i + 1) * ANIMATION_CONFIG.TRAIL_STAGGER,
+        easing: ANIMATION_CONFIG.EASING,
+        fill: "forwards",
+      });
+    });
+
+    await leadAnim.finished;
+    
+    if (anim?.cancelled) return;
+
+    // Hide dots and show Rive at new position
+    lead.style.opacity = "0";
+    trailRefs.current.forEach((td) => td && (td.style.opacity = "0"));
+    setCenter({ x, y });
+    setRiveHidden(false);
+
+    // Update eye position after render
+    await new Promise((r) => requestAnimationFrame(() => r()));
+    
+    try {
+      const maxWidth = window.innerWidth;
+      const maxHeight = window.innerHeight;
+      if (xAxis) xAxis.value = (x / maxWidth) * 100;
+      if (yAxis) yAxis.value = 100 - (y / maxHeight) * 100;
+    } catch {}
+
+    // Apply end state if specified
+    if (options.endState) {
+      logStateChange("moving", options.endState);
+      switch (options.endState) {
+        case 'pulse':
+          try { pulseTrig?.fire(); } catch {}
+          break;
+        case 'idle':
+          try { idleTrig?.fire(); } catch {}
+          break;
+        case 'loader':
+          try { bigLoadTrig?.fire(); } catch {}
+          break;
+      }
+    }
+  }
+
+  // ========================================
+  // ========== LIFECYCLE METHODS ==========
+  // ========================================
+
+  const onChatOpen = () => {
+    logStateChange(currentState, "entering");
+    const startPos = POSITIONS.OFF_SCREEN_RIGHT();
+    setCenter(startPos);
+    
+    queueAnimation(async () => {
+      const endPos = POSITIONS.TOP_MIDDLE();
+      await moveToPosition(endPos.x, endPos.y, { endState: 'idle' });
+    }, { cancelPrevious: true });
+  };
+
+  const onFirstInputFocus = (x, y) => {
+    if (!isFirstFocus.current) return;
+    
+    logStateChange(currentState, "first-focus");
+    isFirstFocus.current = false;
+    
+    queueAnimation(async () => {
+      const pos = POSITIONS.ABOVE_CHAT_BOX(x, y);
+      await moveToPosition(pos.x, pos.y, { endState: 'idle' });
+    }, { debounce: TIMING.DEBOUNCE_DELAY });
+  };
+
+  const onUserSendsMessage = (x, y) => {
+    logStateChange(currentState, "user-sending");
+    
+    queueAnimation(async () => {
+      const pos = POSITIONS.NEAR_AI_MESSAGE(x, y);
+      await moveToPosition(pos.x, pos.y, { endState: 'loader' });
+    }, { debounce: TIMING.DEBOUNCE_DELAY });
+  };
+
+  const onAIMessageReady = () => {
+    logStateChange(currentState, "ai-ready");
+    try { 
+      bigLoadTrig?.fire(); // Stop loader
+      pulseTrig?.fire();    // Start pulse
+    } catch {}
+  };
+
+  const onAIMessageShown = (x, y) => {
+    logStateChange(currentState, "returning");
+    
+    queueAnimation(async () => {
+      // Stop pulsing immediately
+      try { 
+        pulseTrig?.fire(); // Stop the pulse state
+        idleTrig?.fire();  // Set to idle while waiting
+      } catch {}
+      
+      await sleep(TIMING.RETURN_TO_CHAT_DELAY);
+      const pos = POSITIONS.ABOVE_CHAT_BOX(x, y);
+      await moveToPosition(pos.x, pos.y, { endState: 'idle' });
+    }, { debounce: TIMING.DEBOUNCE_DELAY });
+  };
+
+  const onUserTyping = (inputX, inputY, inputWidth, caretPosition) => {
+    if (!xAxis || !yAxis) return;
+    
+    try {
+      // Set typing state to disable mouse tracking
+      if (!isTyping) {
+        console.log("[Astro] Started typing - disabled mouse tracking");
+      }
+      setIsTyping(true);
+      
+      const maxWidth = window.innerWidth;
+      const maxHeight = window.innerHeight;
+      
+      // Calculate eye position based on caret
+      const normalizedCaret = Math.min(1, Math.max(0, caretPosition));
+      const actualX = inputX + (inputWidth * normalizedCaret);
+      
+      xAxis.value = (actualX / maxWidth) * 100;
+      yAxis.value = 100 - (inputY / maxHeight) * 100;
+      
+      // Clear previous timeout
+      if (typingTimeout.current) {
+        clearTimeout(typingTimeout.current);
+      }
+      
+      // Resume mouse tracking after user stops typing
+      typingTimeout.current = setTimeout(() => {
+        setIsTyping(false);
+        console.log("[Astro] Resumed mouse tracking");
+      }, 1500); // 1.5 seconds after last keystroke
+      
+    } catch (err) {
+      console.error("[Astro] Error tracking typing:", err);
+    }
+  };
+
+  // ========================================
+  // ========== RIVE STATE TRIGGERS ========
+  // ========================================
+
+  const triggerIdle = () => {
+    logStateChange(currentState, "idle");
+    try { idleTrig?.fire(); } catch {}
+  };
+
+  const triggerUndo = () => {
+    logStateChange(currentState, "undo");
+    try { undoTrig?.fire(); } catch {}
+  };
+
+  const triggerIdeaSpark = () => {
+    logStateChange(currentState, "idea-spark");
+    try { ideaTrig?.fire(); } catch {}
+  };
+
+  const triggerBoredom = () => {
+    logStateChange(currentState, "boredom");
+    try { boredTrig?.fire(); } catch {}
+  };
+
+  const triggerBigLoader = () => {
+    logStateChange(currentState, "big-loader");
+    try { bigLoadTrig?.fire(); } catch {}
+  };
+
+  const triggerSmallLoader = () => {
+    logStateChange(currentState, "small-loader");
+    try { smallLoadTrig?.fire(); } catch {}
+  };
+
+  const triggerShrink = () => {
+    logStateChange(currentState, "shrink");
+    try { shrinkTrig?.fire(); } catch {}
+  };
+
+  const triggerPulse = () => {
+    logStateChange(currentState, "pulse");
+    try { pulseTrig?.fire(); } catch {}
+  };
+
+  const triggerPublish = () => {
+    logStateChange(currentState, "publish");
+    try { publishTrig?.fire(); } catch {}
+  };
+
+  // ========================================
+  // ========== EFFECTS & SETUP ============
+  // ========================================
+
+  // Mouse tracking (only when not typing)
   useEffect(() => {
     if (!rive || !xAxis || !yAxis) return;
 
     const handleMouseMove = (e) => {
+      // Don't follow mouse while user is typing
+      if (isTyping) return;
+      
       const maxWidth = window.innerWidth;
       const maxHeight = window.innerHeight;
-      
-      // Convert mouse position to 0-100 range
-      // xAxis: 0 (left) to 100 (right)
-      // yAxis: 100 (top) to 0 (bottom) - inverted Y
       xAxis.value = (e.x / maxWidth) * 100;
       yAxis.value = 100 - (e.y / maxHeight) * 100;
     };
 
     window.addEventListener("mousemove", handleMouseMove);
-    
-    return () => {
-      window.removeEventListener("mousemove", handleMouseMove);
-    };
-  }, [rive, xAxis, yAxis]);
+    return () => window.removeEventListener("mousemove", handleMouseMove);
+  }, [rive, xAxis, yAxis, isTyping]);
 
-  // Be lenient: allow visual move even if some inputs aren’t ready yet
-  async function waitForInputs(timeoutMs = 5000) {
-    const startT = performance.now();
-    while (!rive && performance.now() - startT < timeoutMs) {
-      await sleep(16);
-    }
-    return true;
-  }
-
-  // Expose a control surface to parent
-  useEffect(() => {
-    if (!onReady || !rive) return;
-    onReady({
-      publish:     () => publishTrig?.fire(),
-      undo:        () => undoTrig?.fire(),
-      sparkIdea:   () => ideaTrig?.fire(),
-      bored:       () => boredTrig?.fire(),
-      bigLoader:   () => bigLoadTrig?.fire(),
-      smallLoader: () => smallLoadTrig?.fire(),
-      shrink:      () => shrinkTrig?.fire(),
-      pulse:       () => pulseTrig?.fire(),
-      idle:        () => idleTrig?.fire(),
-      /** aim/head-look if your graph uses xAxis/yAxis (normalized 0-100) */
-      lookAt:      (x, y) => {
-        try {
-          const maxWidth = window.innerWidth;
-          const maxHeight = window.innerHeight;
-          if (xAxis) xAxis.value = (x / maxWidth) * 100;
-          if (yAxis) yAxis.value = 100 - (y / maxHeight) * 100;
-        } catch {}
-      },
-    });
-  }, [rive, onReady, publishTrig, undoTrig, ideaTrig, boredTrig, bigLoadTrig, smallLoadTrig, shrinkTrig, pulseTrig, idleTrig, xAxis, yAxis]);
-
-  useImperativeHandle(ref, () => ({
-    /** Smoothly move Astro to (x,y) with shrink→trail→grow, plus optional Rive triggers */
-    async moveTo(x, y) {
-      await waitForInputs();
-
-      const lead = leadDotRef.current;
-      if (!lead) return;
-
-      // 0) hint Rive look-at (so the face/eyes can anticipate)
-      try {
-        const maxWidth = window.innerWidth;
-        const maxHeight = window.innerHeight;
-        if (xAxis) xAxis.value = (x / maxWidth) * 100;
-        if (yAxis) yAxis.value = 100 - (y / maxHeight) * 100;
-      } catch {}
-
-      // 1) Shrink / “hide” via your SHRINK_STATE trigger
-      try { shrinkTrig?.fire(); } catch {}
-      await sleep(ANIM.shrinkMs);
-
-      // 2) Hide Rive visual, show dots from current center
-      setRiveHidden(true);
-      const start = { x: center.x, y: center.y };
-      const end   = { x, y };
-
-      lead.style.opacity = "1";
-      trailRefs.current.forEach((d, i) => {
-        if (!d) return;
-        const ratio = (i + 1) / ANIM.trailCount;
-        const scale = ANIM.trailMinScale + (1 - ANIM.trailMinScale) * (1 - ratio);
-        const opacity = ANIM.trailFade + (1 - ANIM.trailFade) * (1 - ratio);
-        d.style.opacity = String(opacity);
-        d.style.transform = `scale(${scale})`;
-      });
-
-      await sleep(ANIM.delayBeforeMoveMs);
-
-      // 3) Animate along a bezier path
-      const sway = ANIM.sway * (0.85 + Math.random() * 0.3);
-      const d = buildPathD(start, end, sway);
-
-      const prepDot = (el) => {
-        if (!el) return;
-        setMotionPath(el, d);
-        setOffsetDistance(el, "0%");
-        setOffsetRotate(el, "0deg");
-        setOffsetAnchor(el, "50% 50%");
-      };
-      prepDot(lead);
-      trailRefs.current.forEach((td) => td && prepDot(td));
-
-      const leadAnim = lead.animate(
-        [{ offsetDistance: "0%" }, { offsetDistance: "100%" }],
-        { duration: ANIM.travelMs, easing: ANIM.easing, fill: "forwards" }
-      );
-
-      trailRefs.current.forEach((td, i) => {
-        if (!td) return;
-        td.animate([{ offsetDistance: "0%" }, { offsetDistance: "100%" }], {
-          duration: ANIM.travelMs,
-          delay: (i + 1) * ANIM.trailStaggerMs,
-          easing: ANIM.easing,
-          fill: "forwards",
-        });
-      });
-
-      await leadAnim.finished;
-
-      // 4) Teleport Rive to the end, hide dots, show Rive again
-      lead.style.opacity = "0";
-      trailRefs.current.forEach((td) => td && (td.style.opacity = "0"));
-      setCenter({ x, y });
-      setRiveHidden(false);
-
-      // 5) After next paint: nudge look-at & return to idle/pulse
-      await new Promise((r) => requestAnimationFrame(() => r()));
-      try {
-        const maxWidth = window.innerWidth;
-        const maxHeight = window.innerHeight;
-        if (xAxis) xAxis.value = (x / maxWidth) * 100;
-        if (yAxis) yAxis.value = 100 - (y / maxHeight) * 100;
-      } catch {}
-      // Choose what you want to happen on arrival:
-      // - idleTrig?.fire() to settle
-      // - or pulseTrig?.fire() for CTA flourish
-      try { idleTrig?.fire(); } catch {}
-    },
-  }));
-
-  // Keep the Rive container centered at (center.x, center.y)
+  // Keep Rive container at correct position
   useEffect(() => {
     const el = wrapperRef.current;
     if (!el) return;
     const left = center.x - width / 2;
-    const top  = center.y - height / 2;
+    const top = center.y - height / 2;
     el.style.transform = `translate3d(${left}px, ${top}px, 0)`;
   }, [center, width, height]);
 
+  // Expose API through ref
+  useImperativeHandle(ref, () => ({
+    // Lifecycle Methods
+    onChatOpen,
+    onFirstInputFocus,
+    onUserSendsMessage,
+    onAIMessageReady,
+    onAIMessageShown,
+    onUserTyping,
+    
+    // Rive State Triggers
+    triggerIdle,
+    triggerUndo,
+    triggerIdeaSpark,
+    triggerBoredom,
+    triggerBigLoader,
+    triggerSmallLoader,
+    triggerShrink,
+    triggerPulse,
+    triggerPublish,
+    
+    // Utility Methods
+    cancelAnimations: () => {
+      cancelCurrentAnimation();
+      animationQueue.current = [];
+    },
+    moveTo: (x, y) => {
+      queueAnimation(async () => {
+        await moveToPosition(x, y, { endState: 'idle' });
+      });
+    },
+  }));
+
+  // ========================================
+  // ========== RENDER =====================
+  // ========================================
+
   return (
     <>
-      {/* Lead dot */}
+      {/* Lead dot for movement animation */}
       <div
         ref={leadDotRef}
         style={{
           position: "fixed",
           left: 0,
           top: 0,
-          width: ANIM.dotSize,
-          height: ANIM.dotSize,
+          width: ANIMATION_CONFIG.DOT_SIZE,
+          height: ANIMATION_CONFIG.DOT_SIZE,
           borderRadius: "50%",
-          background: ANIM.dotColor,
+          background: ANIMATION_CONFIG.DOT_COLOR,
           pointerEvents: "none",
           zIndex: zIndex,
           opacity: 0,
           transition: "opacity 120ms ease",
         }}
       />
-      {/* Trail dots */}
-      {Array.from({ length: ANIM.trailCount }).map((_, i) => (
+      
+      {/* Trail dots for movement effect */}
+      {Array.from({ length: ANIMATION_CONFIG.TRAIL_COUNT }).map((_, i) => (
         <div
           key={i}
           ref={(el) => (trailRefs.current[i] = el)}
@@ -290,20 +652,20 @@ const Astro = forwardRef(function Astro(props, ref) {
             position: "fixed",
             left: 0,
             top: 0,
-            width: ANIM.dotSize,
-            height: ANIM.dotSize,
+            width: ANIMATION_CONFIG.DOT_SIZE,
+            height: ANIMATION_CONFIG.DOT_SIZE,
             borderRadius: "50%",
-            background: ANIM.dotColor,
+            background: ANIMATION_CONFIG.DOT_COLOR,
             pointerEvents: "none",
             zIndex: zIndex - 1,
             opacity: 0,
             transition: "opacity 120ms ease",
-            filter: ANIM.trailBlurPx ? `blur(${ANIM.trailBlurPx}px)` : "none",
+            filter: ANIMATION_CONFIG.TRAIL_BLUR ? `blur(${ANIMATION_CONFIG.TRAIL_BLUR}px)` : "none",
           }}
         />
       ))}
 
-      {/* Rive visual (non-interactive overlay) */}
+      {/* Rive character container */}
       <div
         ref={wrapperRef}
         style={{
@@ -313,7 +675,7 @@ const Astro = forwardRef(function Astro(props, ref) {
           width,
           height,
           zIndex: zIndex - 2,
-          pointerEvents: "none", // keep chat inputs clickable
+          pointerEvents: "none", // Ensures chat remains clickable
           opacity: riveHidden ? 0 : 1,
           transition: "opacity 80ms linear",
           transform: "translate3d(0,0,0)",
