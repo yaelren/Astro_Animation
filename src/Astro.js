@@ -43,6 +43,7 @@ const TIMING = {
   RETURN_TO_CHAT_DELAY: 500,   // Wait time before returning to chat box
   DEBOUNCE_DELAY: 100,          // Debounce for preventing rapid triggers
   ANIMATION_FRAME_DELAY: 16,    // Single frame delay (60fps)
+  BOREDOM_TIMEOUT: 120000,      // Time of inactivity before triggering boredom (2 minutes)
 };
 
 // Visual Animation Configuration
@@ -164,6 +165,7 @@ const Astro = forwardRef(function Astro(props, ref) {
   const [riveHidden, setRiveHidden] = useState(false);
   const [currentState, setCurrentState] = useState("idle");
   const [isTyping, setIsTyping] = useState(false);
+  const [isBored, setIsBored] = useState(false);
   
   // ========== REFS ==========
   const wrapperRef = useRef(null);
@@ -175,6 +177,7 @@ const Astro = forwardRef(function Astro(props, ref) {
   const currentAnimation = useRef(null);
   const animationDebounce = useRef(null);
   const typingTimeout = useRef(null);
+  const boredomTimeout = useRef(null);
 
   // ========== RIVE SETUP ==========
   const { rive, RiveComponent } = useRive({
@@ -478,6 +481,18 @@ const Astro = forwardRef(function Astro(props, ref) {
       }
       setIsTyping(true);
       
+      // Reset boredom when user types
+      if (isBored) {
+        console.log("[Astro] User typing - resetting boredom");
+        setIsBored(false);
+        triggerIdle();
+      }
+      
+      // Clear boredom timeout while typing
+      if (boredomTimeout.current) {
+        clearTimeout(boredomTimeout.current);
+      }
+      
       const maxWidth = window.innerWidth;
       const maxHeight = window.innerHeight;
       
@@ -497,6 +512,15 @@ const Astro = forwardRef(function Astro(props, ref) {
       typingTimeout.current = setTimeout(() => {
         setIsTyping(false);
         console.log("[Astro] Resumed mouse tracking");
+        
+        // Start boredom timer after typing stops
+        boredomTimeout.current = setTimeout(() => {
+          if (!isBored && !isTyping) {
+            console.log("[Astro] Idle after typing - triggering boredom");
+            setIsBored(true);
+            triggerBoredom();
+          }
+        }, TIMING.BOREDOM_TIMEOUT);
       }, 1500); // 1.5 seconds after last keystroke
       
     } catch (err) {
@@ -557,7 +581,7 @@ const Astro = forwardRef(function Astro(props, ref) {
   // ========== EFFECTS & SETUP ============
   // ========================================
 
-  // Mouse tracking (only when not typing)
+  // Mouse tracking (only when not typing) and boredom detection
   useEffect(() => {
     if (!rive || !xAxis || !yAxis) return;
 
@@ -569,11 +593,47 @@ const Astro = forwardRef(function Astro(props, ref) {
       const maxHeight = window.innerHeight;
       xAxis.value = 100 - (e.x / maxWidth) * 100;
       yAxis.value = 100 - (e.y / maxHeight) * 100;
+      
+      // Reset boredom when mouse moves
+      if (isBored) {
+        console.log("[Astro] Mouse moved - resetting boredom");
+        setIsBored(false);
+        triggerIdle(); // Return to idle when mouse moves
+      }
+      
+      // Clear existing boredom timeout
+      if (boredomTimeout.current) {
+        clearTimeout(boredomTimeout.current);
+      }
+      
+      // Set new boredom timeout
+      boredomTimeout.current = setTimeout(() => {
+        if (!isBored && !isTyping) {
+          console.log("[Astro] Mouse idle for 2 minutes - triggering boredom");
+          setIsBored(true);
+          triggerBoredom();
+        }
+      }, TIMING.BOREDOM_TIMEOUT);
     };
 
     window.addEventListener("mousemove", handleMouseMove);
-    return () => window.removeEventListener("mousemove", handleMouseMove);
-  }, [rive, xAxis, yAxis, isTyping]);
+    
+    // Start initial boredom timer
+    boredomTimeout.current = setTimeout(() => {
+      if (!isBored && !isTyping) {
+        console.log("[Astro] Initial idle detected - triggering boredom");
+        setIsBored(true);
+        triggerBoredom();
+      }
+    }, TIMING.BOREDOM_TIMEOUT);
+    
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      if (boredomTimeout.current) {
+        clearTimeout(boredomTimeout.current);
+      }
+    };
+  }, [rive, xAxis, yAxis, isTyping, isBored]);
 
   // Keep Rive container at correct position
   useEffect(() => {
