@@ -34,6 +34,12 @@ const RIVE_INPUTS = {
   MOUSE_Y: "yAxis",
 };
 
+// Eye tracking smoothing configuration
+const EYE_TRACKING = {
+  SMOOTHING_FACTOR: 0.1,        // Lower = smoother/slower, Higher = more responsive
+  DELAY_MS: 16,                 // Delay before eyes start following target (in milliseconds)
+};
+
 // Animation Timing Configuration (in milliseconds)
 // TODO: Wire these to your production configuration
 const TIMING = {
@@ -167,6 +173,10 @@ const Astro = forwardRef(function Astro(props, ref) {
   const [isTyping, setIsTyping] = useState(false);
   const [isBored, setIsBored] = useState(false);
   
+  // Eye tracking smoothing state
+  const [currentEyePos, setCurrentEyePos] = useState({ x: 50, y: 50 });
+  const [targetEyePos, setTargetEyePos] = useState({ x: 50, y: 50 });
+  
   // ========== REFS ==========
   const wrapperRef = useRef(null);
   const leadDotRef = useRef(null);
@@ -178,6 +188,8 @@ const Astro = forwardRef(function Astro(props, ref) {
   const animationDebounce = useRef(null);
   const typingTimeout = useRef(null);
   const boredomTimeout = useRef(null);
+  const eyeTrackingAnimationId = useRef(null);
+  const eyeDelayTimeout = useRef(null);
 
   // ========== RIVE SETUP ==========
   const { rive, RiveComponent } = useRive({
@@ -249,6 +261,32 @@ const Astro = forwardRef(function Astro(props, ref) {
     console.log(`[Astro Eye Tracking] Mouse: (${mouseX}, ${mouseY}), Astro: (${astroX}, ${astroY}), Relative: (${relativeX}, ${relativeY}), Normalized: (${normalizedX.toFixed(1)}, ${normalizedY.toFixed(1)})`);
     
     return { x: normalizedX, y: normalizedY };
+  };
+
+  // Smoothly interpolate eye position with delay for natural movement
+  const updateEyePosition = (targetX, targetY) => {
+    // Clear any existing delay timeout
+    if (eyeDelayTimeout.current) {
+      clearTimeout(eyeDelayTimeout.current);
+    }
+    
+    // Apply delay before updating target position
+    eyeDelayTimeout.current = setTimeout(() => {
+      setTargetEyePos({ x: targetX, y: targetY });
+    }, EYE_TRACKING.DELAY_MS);
+  };
+
+  // Set eye position immediately (for specific cases where no smoothing is needed)
+  const setEyePositionImmediate = (x, y) => {
+    // Clear any pending delayed updates
+    if (eyeDelayTimeout.current) {
+      clearTimeout(eyeDelayTimeout.current);
+    }
+    
+    setCurrentEyePos({ x, y });
+    setTargetEyePos({ x, y });
+    if (xAxis) xAxis.value = x;
+    if (yAxis) yAxis.value = y;
   };
 
   // Wait for Rive to be ready
@@ -329,8 +367,7 @@ const Astro = forwardRef(function Astro(props, ref) {
     // Update eye position to look at target (relative to Astro's current position)
     try {
       const relativePos = calculateRelativeMousePosition(x, y, center.x, center.y);
-      if (xAxis) xAxis.value = relativePos.x;
-      if (yAxis) yAxis.value = relativePos.y;
+      updateEyePosition(relativePos.x, relativePos.y);
     } catch {}
 
     if (anim?.cancelled) return;
@@ -410,8 +447,7 @@ const Astro = forwardRef(function Astro(props, ref) {
     await new Promise((r) => requestAnimationFrame(() => r()));
     
     try {
-      if (xAxis) xAxis.value = 50; // Look straight ahead when at target
-      if (yAxis) yAxis.value = 50;
+      setEyePositionImmediate(50, 50); // Look straight ahead when at target
     } catch {}
 
     // Apply end state if specified
@@ -516,8 +552,9 @@ const Astro = forwardRef(function Astro(props, ref) {
       const actualX = inputX + (inputWidth * normalizedCaret);
       
       const relativePos = calculateRelativeMousePosition(actualX, inputY, center.x, center.y);
-      xAxis.value = relativePos.x;
-      yAxis.value = relativePos.y;
+      
+      // Use smooth eye tracking for typing cursor as well
+      updateEyePosition(relativePos.x, relativePos.y);
       
       // Clear previous timeout
       if (typingTimeout.current) {
@@ -597,6 +634,38 @@ const Astro = forwardRef(function Astro(props, ref) {
   // ========== EFFECTS & SETUP ============
   // ========================================
 
+  // Smooth eye tracking animation loop
+  useEffect(() => {
+    if (!xAxis || !yAxis) return;
+
+    const animate = () => {
+      const dx = targetEyePos.x - currentEyePos.x;
+      const dy = targetEyePos.y - currentEyePos.y;
+      
+      // Only update if there's a meaningful difference
+      if (Math.abs(dx) > 0.1 || Math.abs(dy) > 0.1) {
+        const newX = currentEyePos.x + (dx * EYE_TRACKING.SMOOTHING_FACTOR);
+        const newY = currentEyePos.y + (dy * EYE_TRACKING.SMOOTHING_FACTOR);
+        
+        setCurrentEyePos({ x: newX, y: newY });
+        
+        // Update Rive inputs with smoothed values
+        xAxis.value = newX;
+        yAxis.value = newY;
+      }
+      
+      eyeTrackingAnimationId.current = requestAnimationFrame(animate);
+    };
+
+    eyeTrackingAnimationId.current = requestAnimationFrame(animate);
+
+    return () => {
+      if (eyeTrackingAnimationId.current) {
+        cancelAnimationFrame(eyeTrackingAnimationId.current);
+      }
+    };
+  }, [xAxis, yAxis, currentEyePos, targetEyePos]);
+
   // Mouse tracking (only when not typing) and boredom detection
   useEffect(() => {
     if (!rive || !xAxis || !yAxis) return;
@@ -607,11 +676,12 @@ const Astro = forwardRef(function Astro(props, ref) {
       
       // Calculate mouse position relative to Astro's current position
       const relativePos = calculateRelativeMousePosition(e.clientX, e.clientY, center.x, center.y);
-      xAxis.value = relativePos.x;
-      yAxis.value = relativePos.y;
+      
+      // Use smooth eye tracking instead of direct assignment
+      updateEyePosition(relativePos.x, relativePos.y);
       
       // Additional debug info
-      console.log(`[Astro] Setting eye values - xAxis: ${relativePos.x}, yAxis: ${relativePos.y}`);
+      console.log(`[Astro] Setting target eye values - xAxis: ${relativePos.x}, yAxis: ${relativePos.y}`);
       
       // Reset boredom when mouse moves
       if (isBored) {
@@ -650,6 +720,9 @@ const Astro = forwardRef(function Astro(props, ref) {
       window.removeEventListener("mousemove", handleMouseMove);
       if (boredomTimeout.current) {
         clearTimeout(boredomTimeout.current);
+      }
+      if (eyeDelayTimeout.current) {
+        clearTimeout(eyeDelayTimeout.current);
       }
     };
   }, [rive, xAxis, yAxis, isTyping, isBored, center]);
