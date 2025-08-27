@@ -36,7 +36,7 @@ const RIVE_INPUTS = {
 
 // Eye tracking smoothing configuration
 const EYE_TRACKING = {
-  SMOOTHING_FACTOR: 0.03,        // Lower = smoother/slower, Higher = more responsive
+  SMOOTHING_FACTOR: 0.1,        // Lower = smoother/slower, Higher = more responsive
   DELAY_MS: 14,                 // Delay before eyes start following target (in milliseconds)
 };
 
@@ -49,7 +49,7 @@ const TIMING = {
   RETURN_TO_CHAT_DELAY: 500,   // Wait time before returning to chat box
   DEBOUNCE_DELAY: 100,          // Debounce for preventing rapid triggers
   ANIMATION_FRAME_DELAY: 16,    // Single frame delay (60fps)
-  BOREDOM_TIMEOUT: 15000,    // Time of inactivity before triggering boredom (15 seconds for testing)
+  BOREDOM_TIMEOUT: 7000,    // Time of inactivity before triggering boredom (7 seconds for testing)
 };
 
 // Visual Animation Configuration
