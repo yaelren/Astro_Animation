@@ -36,8 +36,8 @@ const RIVE_INPUTS = {
 
 // Eye tracking smoothing configuration
 const EYE_TRACKING = {
-  SMOOTHING_FACTOR: 0.1,        // Lower = smoother/slower, Higher = more responsive
-  DELAY_MS: 14,                 // Delay before eyes start following target (in milliseconds)
+  SMOOTHING_FACTOR: 0.07,        // Lower = smoother/slower, Higher = more responsive
+  DELAY_MS: 16,                 // Delay before eyes start following target (in milliseconds)
 };
 
 // Animation Timing Configuration (in milliseconds)
@@ -85,7 +85,7 @@ const POSITIONS = {
   // Middle of the chat area (slightly above center)
   TOP_MIDDLE: () => ({
     x: window.innerWidth / 2 - 160,  // Center of chat area (accounting for sidebar)
-    y: window.innerHeight / 2  -50 // Middle of screen, moved higher up
+    y: window.innerHeight / 2 - 120  // Positioned above greeting text
   }),
   
   // Position at top-left of chat input box
