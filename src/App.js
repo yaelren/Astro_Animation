@@ -105,17 +105,9 @@ export default function App() {
   };
 
   // Handle typing tracking
-  const handleChatTyping = (inputRect, text, caretPosition, textLength) => {
-    if (inputRect && typeof caretPosition === 'number') {
-      // Normalize caret position to 0-1 based on text length
-      const normalizedCaretPosition = textLength > 0 ? caretPosition / textLength : 0;
-      
-      astroRef.current?.onUserTyping(
-        inputRect.left,
-        inputRect.top + inputRect.height / 2,
-        inputRect.width,
-        normalizedCaretPosition
-      );
+  const handleChatTyping = (caretX, caretY) => {
+    if (typeof caretX === 'number' && typeof caretY === 'number') {
+      astroRef.current?.onUserTyping(caretX, caretY);
     }
   };
 

@@ -42,6 +42,56 @@ export default function ChatMock({
     }
   };
 
+  // Get actual caret position in screen coordinates
+  const getCaretPosition = (textarea, caretIndex) => {
+    // Create a temporary div with the same styling as the textarea
+    const div = document.createElement('div');
+    const style = window.getComputedStyle(textarea);
+    
+    // Copy all relevant styles
+    div.style.position = 'absolute';
+    div.style.visibility = 'hidden';
+    div.style.whiteSpace = 'pre-wrap';
+    div.style.wordWrap = 'break-word';
+    div.style.font = style.font;
+    div.style.fontSize = style.fontSize;
+    div.style.fontFamily = style.fontFamily;
+    div.style.fontWeight = style.fontWeight;
+    div.style.lineHeight = style.lineHeight;
+    div.style.letterSpacing = style.letterSpacing;
+    div.style.padding = style.padding;
+    div.style.border = style.border;
+    div.style.width = style.width;
+    
+    document.body.appendChild(div);
+    
+    // Get text before caret
+    const textBeforeCaret = textarea.value.substring(0, caretIndex);
+    
+    // Create span for text before caret
+    const span = document.createElement('span');
+    span.textContent = textBeforeCaret;
+    div.appendChild(span);
+    
+    // Create span for caret position
+    const caretSpan = document.createElement('span');
+    caretSpan.textContent = '|';
+    div.appendChild(caretSpan);
+    
+    // Get caret position relative to the div
+    const caretRect = caretSpan.getBoundingClientRect();
+    const textareaRect = textarea.getBoundingClientRect();
+    
+    // Calculate actual caret position in screen coordinates
+    const caretX = textareaRect.left + (caretRect.left - div.getBoundingClientRect().left);
+    const caretY = textareaRect.top + (caretRect.top - div.getBoundingClientRect().top);
+    
+    // Clean up
+    document.body.removeChild(div);
+    
+    return { x: caretX, y: caretY };
+  };
+
   // Handle typing - track caret position
   const handleInputChange = (e) => {
     const newValue = e.target.value;
@@ -52,12 +102,12 @@ export default function ChatMock({
     textarea.style.height = 'auto';
     textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
     
-    // Track typing for eye movement with actual caret position
-    const rect = inputRef.current?.getBoundingClientRect();
-    const caretPosition = e.target.selectionStart; // Actual caret position
-    const textLength = newValue.length;
+    // Get actual caret position in screen coordinates
+    const caretIndex = e.target.selectionStart;
+    const caretPos = getCaretPosition(textarea, caretIndex);
     
-    onTyping?.(rect, newValue, caretPosition, textLength);
+    // Pass actual caret coordinates to Astro
+    onTyping?.(caretPos.x, caretPos.y);
   };
 
   // Send message flow

@@ -21,7 +21,7 @@ const RIVE_STATES = {
   UNDO: "Undo", //trigger
   IDEA_SPARK: "Idea_Spark", //trigger
   BOREDOM: "Boredom", //boolean
-  BIG_LOADER: "Big_Loader", //trigger
+  BIG_LOADER: "Big_Loader", //trigger - not currently used
   SMALL_LOADER: "Small_Loader", //trigger
   SHRINK: "Shrink", //trigger
   PULSE: "Pulse", //trigger
@@ -551,7 +551,7 @@ const Astro = forwardRef(function Astro(props, ref) {
     }, { debounce: TIMING.DEBOUNCE_DELAY });
   };
 
-  const onUserTyping = (inputX, inputY, inputWidth, caretPosition) => {
+  const onUserTyping = (caretX, caretY) => {
     if (!xAxis || !yAxis) return;
     
     try {
@@ -565,12 +565,10 @@ const Astro = forwardRef(function Astro(props, ref) {
       setBoredomState(false, true);
       
       // Calculate eye position based on caret position relative to Astro's position
-      const normalizedCaret = Math.min(1, Math.max(0, caretPosition));
-      const actualX = inputX + (inputWidth * normalizedCaret);
+      // Use the same logic as mouse tracking - just with caret coordinates
+      const relativePos = calculateRelativeMousePosition(caretX, caretY, center.x, center.y);
       
-      const relativePos = calculateRelativeMousePosition(actualX, inputY, center.x, center.y);
-      
-      // Use smooth eye tracking for typing cursor as well
+      // Use smooth eye tracking for typing cursor
       updateEyePosition(relativePos.x, relativePos.y);
       
       // Clear previous timeout
