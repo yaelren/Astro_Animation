@@ -12,7 +12,7 @@ import { useRive, useStateMachineInput } from "@rive-app/react-canvas";
 // ========================================
 
 // Rive File and State Machine Configuration
-const RIVE_FILE = "astro_master_(28).riv";
+const RIVE_FILE = "astro_master_(29).riv";
 const STATE_MACHINE_NAME = "Astro State Machine";
 
 // Rive State Names (these must match your Rive file exactly)
@@ -21,7 +21,7 @@ const RIVE_STATES = {
   UNDO: "Undo", //trigger
   IDEA_SPARK: "Idea_Spark", //trigger
   BOREDOM: "Boredom", //boolean
-  BIG_LOADER: "Big_Loader", //boolean (not currently used)
+  BIG_LOADER: "Big_Loader", //trigger
   SMALL_LOADER: "Small_Loader", //trigger
   SHRINK: "Shrink", //trigger
   PULSE: "Pulse", //trigger
@@ -613,14 +613,14 @@ const Astro = forwardRef(function Astro(props, ref) {
 
   const triggerBoredom = () => {
     logStateChange(currentState, "boredom");
-    boredTrig.value = !boredTrig.value;
-  //  setBoredomState(true, false);
+    // boredTrig.value = !boredTrig.value;
+   setBoredomState(!boredTrig.value , false);
   };
 
   const triggerBigLoader = () => {
     logStateChange(currentState, "big-loader");
     try { 
-      if (bigLoadTrig) bigLoadTrig.value = !bigLoadTrig.value;
+      bigLoadTrig?.fire();
     } catch {}
   };
 
