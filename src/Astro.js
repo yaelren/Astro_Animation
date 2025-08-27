@@ -49,7 +49,7 @@ const TIMING = {
   RETURN_TO_CHAT_DELAY: 500,   // Wait time before returning to chat box
   DEBOUNCE_DELAY: 100,          // Debounce for preventing rapid triggers
   ANIMATION_FRAME_DELAY: 16,    // Single frame delay (60fps)
-  BOREDOM_TIMEOUT: 120000,      // Time of inactivity before triggering boredom (2 minutes)
+  BOREDOM_TIMEOUT: 15000,    // Time of inactivity before triggering boredom (15 seconds for testing)
 };
 
 // Visual Animation Configuration
@@ -238,26 +238,12 @@ const Astro = forwardRef(function Astro(props, ref) {
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   
   const setBoredomState = (enabled, restartTimer = true) => {
-    if (enabled) {
-      // Turn ON boredom
-      if (!isBored) {
-        console.log("[Astro] Triggering boredom");
-        setIsBored(true);
-        try {
-          if (boredTrig) boredTrig.value = true;
-        } catch {}
-      }
-    } else {
-      // Turn OFF boredom
-      if (isBored) {
-        console.log("[Astro] Resetting boredom");
-        setIsBored(false);
-        try {
-          if (boredTrig) boredTrig.value = false;
-        } catch {}
-        triggerIdle();
-      }
-      
+    if (boredTrig) {
+      boredTrig.value = enabled;
+    }
+    setIsBored(enabled);
+    
+    if (!enabled) {
       // Clear existing timeout when turning off
       if (boredomTimeout.current) {
         clearTimeout(boredomTimeout.current);
@@ -627,13 +613,14 @@ const Astro = forwardRef(function Astro(props, ref) {
 
   const triggerBoredom = () => {
     logStateChange(currentState, "boredom");
-    setBoredomState(true, false);
+    boredTrig.value = !boredTrig.value;
+  //  setBoredomState(true, false);
   };
 
   const triggerBigLoader = () => {
     logStateChange(currentState, "big-loader");
     try { 
-      if (bigLoadTrig) bigLoadTrig.value = true;
+      if (bigLoadTrig) bigLoadTrig.value = !bigLoadTrig.value;
     } catch {}
   };
 
@@ -697,24 +684,9 @@ const Astro = forwardRef(function Astro(props, ref) {
   useEffect(() => {
     if (!rive || !xAxis || !yAxis) return;
 
-    let lastMouseX = null;
-    let lastMouseY = null;
-    const MOVEMENT_THRESHOLD = 5; // Minimum pixels to consider as actual movement
-
     const handleMouseMove = (e) => {
       // Don't follow mouse while user is typing
       if (isTyping) return;
-      
-      // Check if this is significant movement (not just noise)
-      const isSignificantMovement = 
-        lastMouseX === null || 
-        lastMouseY === null ||
-        Math.abs(e.clientX - lastMouseX) > MOVEMENT_THRESHOLD || 
-        Math.abs(e.clientY - lastMouseY) > MOVEMENT_THRESHOLD;
-      
-      // Update last position
-      lastMouseX = e.clientX;
-      lastMouseY = e.clientY;
       
       // Calculate mouse position relative to Astro's current position
       const relativePos = calculateRelativeMousePosition(e.clientX, e.clientY, center.x, center.y);
@@ -722,13 +694,8 @@ const Astro = forwardRef(function Astro(props, ref) {
       // Use smooth eye tracking instead of direct assignment
       updateEyePosition(relativePos.x, relativePos.y);
       
-      // Additional debug info (commented out to reduce noise)
-      // console.log(`[Astro] Setting target eye values - xAxis: ${relativePos.x}, yAxis: ${relativePos.y}`);
-      
-      // Only reset boredom on significant mouse movement
-      if (isSignificantMovement) {
-        setBoredomState(false, true);
-      }
+      // Reset boredom on any mouse movement
+      setBoredomState(false, true);
     };
 
     window.addEventListener("mousemove", handleMouseMove);
@@ -745,7 +712,7 @@ const Astro = forwardRef(function Astro(props, ref) {
         clearTimeout(eyeDelayTimeout.current);
       }
     };
-  }, [rive, xAxis, yAxis, isTyping, isBored, center]);
+  }, [rive, xAxis, yAxis, isTyping, center]);
 
   // Keep Rive container at correct position
   useEffect(() => {
