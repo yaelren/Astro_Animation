@@ -12,32 +12,32 @@ import { useRive, useStateMachineInput } from "@rive-app/react-canvas";
 // ========================================
 
 // Rive File and State Machine Configuration
-const RIVE_FILE = "astro_master_(25).riv";
+const RIVE_FILE = "astro_master_(28).riv";
 const STATE_MACHINE_NAME = "Astro State Machine";
 
 // Rive State Names (these must match your Rive file exactly)
 const RIVE_STATES = {
-  IDLE: "Idle",
-  UNDO: "Undo",
-  IDEA_SPARK: "Idea _Spark",
-  BOREDOM: "Boredom",
-  BIG_LOADER: "Big_Loader",
-  SMALL_LOADER: "Small_Loader",
-  SHRINK: "Getting_Small",
-  PULSE: "Call-to-Action",
-  PUBLISH: "Publish",
+  IDLE: "Idle", //trigger
+  UNDO: "Undo", //trigger
+  IDEA_SPARK: "Idea_Spark", //trigger
+  BOREDOM: "Boredom", //boolean
+  BIG_LOADER: "Big_Loader", //boolean (not currently used)
+  SMALL_LOADER: "Small_Loader", //trigger
+  SHRINK: "Shrink", //trigger
+  PULSE: "Pulse", //trigger
+  PUBLISH: "Publish", //trigger
 };
 
 // Rive Input Names for eye tracking
 const RIVE_INPUTS = {
-  MOUSE_X: "xAxis",
-  MOUSE_Y: "yAxis",
+  MOUSE_X: "xAxis", //number input
+  MOUSE_Y: "yAxis", //number input
 };
 
 // Eye tracking smoothing configuration
 const EYE_TRACKING = {
   SMOOTHING_FACTOR: 0.03,        // Lower = smoother/slower, Higher = more responsive
-  DELAY_MS: 18,                 // Delay before eyes start following target (in milliseconds)
+  DELAY_MS: 14,                 // Delay before eyes start following target (in milliseconds)
 };
 
 // Animation Timing Configuration (in milliseconds)
@@ -236,6 +236,43 @@ const Astro = forwardRef(function Astro(props, ref) {
   // ========== UTILITY FUNCTIONS ==========
   
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  
+  const setBoredomState = (enabled, restartTimer = true) => {
+    if (enabled) {
+      // Turn ON boredom
+      if (!isBored) {
+        console.log("[Astro] Triggering boredom");
+        setIsBored(true);
+        try {
+          if (boredTrig) boredTrig.value = true;
+        } catch {}
+      }
+    } else {
+      // Turn OFF boredom
+      if (isBored) {
+        console.log("[Astro] Resetting boredom");
+        setIsBored(false);
+        try {
+          if (boredTrig) boredTrig.value = false;
+        } catch {}
+        triggerIdle();
+      }
+      
+      // Clear existing timeout when turning off
+      if (boredomTimeout.current) {
+        clearTimeout(boredomTimeout.current);
+      }
+      
+      // Restart timer if requested (for user interactions)
+      if (restartTimer) {
+        boredomTimeout.current = setTimeout(() => {
+          if (!isTyping) {
+            setBoredomState(true, false);
+          }
+        }, TIMING.BOREDOM_TIMEOUT);
+      }
+    }
+  };
 
   const logStateChange = (from, to) => {
     console.log(`[Astro] State: ${from} → ${to}`);
@@ -258,7 +295,7 @@ const Astro = forwardRef(function Astro(props, ref) {
     const normalizedY = Math.max(0, Math.min(100, 50 - (relativeY / lookRange) * 50));
     
     // Debug logging
-    console.log(`[Astro Eye Tracking] Mouse: (${mouseX}, ${mouseY}), Astro: (${astroX}, ${astroY}), Relative: (${relativeX}, ${relativeY}), Normalized: (${normalizedX.toFixed(1)}, ${normalizedY.toFixed(1)})`);
+    // console.log(`[Astro Eye Tracking] Mouse: (${mouseX}, ${mouseY}), Astro: (${astroX}, ${astroY}), Relative: (${relativeX}, ${relativeY}), Normalized: (${normalizedX.toFixed(1)}, ${normalizedY.toFixed(1)})`);
     
     return { x: normalizedX, y: normalizedY };
   };
@@ -372,10 +409,12 @@ const Astro = forwardRef(function Astro(props, ref) {
 
     if (anim?.cancelled) return;
 
-    // Trigger shrink animation
-    logStateChange(currentState, "shrinking");
-    try { shrinkTrig?.fire(); } catch {}
-    await sleep(TIMING.SHRINK_DURATION);
+    // Trigger shrink animation only if not explicitly skipped
+    if (!options.skipShrink) {
+      logStateChange(currentState, "shrinking");
+      try { shrinkTrig?.fire(); } catch {}
+      await sleep(TIMING.SHRINK_DURATION);
+    }
     
     if (anim?.cancelled) return;
 
@@ -460,10 +499,14 @@ const Astro = forwardRef(function Astro(props, ref) {
         case 'idle':
           try { idleTrig?.fire(); } catch {}
           break;
-        case 'loader':
+        case 'small-loader':
           try { smallLoadTrig?.fire(); } catch {}
           break;
       }
+    } else {
+      // Default to idle if no end state specified
+      logStateChange("moving", "idle");
+      try { idleTrig?.fire(); } catch {}
     }
   }
 
@@ -499,7 +542,7 @@ const Astro = forwardRef(function Astro(props, ref) {
     
     queueAnimation(async () => {
       const pos = POSITIONS.NEAR_AI_MESSAGE(x, y);
-      await moveToPosition(pos.x, pos.y, { endState: 'loader' });
+      await moveToPosition(pos.x, pos.y, { endState: 'small-loader' });
     }, { debounce: TIMING.DEBOUNCE_DELAY });
   };
 
@@ -514,14 +557,11 @@ const Astro = forwardRef(function Astro(props, ref) {
     logStateChange(currentState, "returning");
     
     queueAnimation(async () => {
-      // Trigger idle state
-      try { 
-        idleTrig?.fire();  // Set to idle
-      } catch {}
-      
+      // Trigger idle state before moving (no shrink needed)
+   
       await sleep(TIMING.RETURN_TO_CHAT_DELAY);
       const pos = POSITIONS.ABOVE_CHAT_BOX(x, y);
-      await moveToPosition(pos.x, pos.y, { endState: 'idle' });
+      await moveToPosition(pos.x, pos.y, { endState: 'idle', skipShrink: true });
     }, { debounce: TIMING.DEBOUNCE_DELAY });
   };
 
@@ -536,16 +576,7 @@ const Astro = forwardRef(function Astro(props, ref) {
       setIsTyping(true);
       
       // Reset boredom when user types
-      if (isBored) {
-        console.log("[Astro] User typing - resetting boredom");
-        setIsBored(false);
-        triggerIdle();
-      }
-      
-      // Clear boredom timeout while typing
-      if (boredomTimeout.current) {
-        clearTimeout(boredomTimeout.current);
-      }
+      setBoredomState(false, true);
       
       // Calculate eye position based on caret position relative to Astro's position
       const normalizedCaret = Math.min(1, Math.max(0, caretPosition));
@@ -567,13 +598,7 @@ const Astro = forwardRef(function Astro(props, ref) {
         console.log("[Astro] Resumed mouse tracking");
         
         // Start boredom timer after typing stops
-        boredomTimeout.current = setTimeout(() => {
-          if (!isBored && !isTyping) {
-            console.log("[Astro] Idle after typing - triggering boredom");
-            setIsBored(true);
-            triggerBoredom();
-          }
-        }, TIMING.BOREDOM_TIMEOUT);
+        setBoredomState(false, true); // Reset and restart timer
       }, 1500); // 1.5 seconds after last keystroke
       
     } catch (err) {
@@ -602,12 +627,14 @@ const Astro = forwardRef(function Astro(props, ref) {
 
   const triggerBoredom = () => {
     logStateChange(currentState, "boredom");
-    try { boredTrig?.fire(); } catch {}
+    setBoredomState(true, false);
   };
 
   const triggerBigLoader = () => {
     logStateChange(currentState, "big-loader");
-    try { bigLoadTrig?.fire(); } catch {}
+    try { 
+      if (bigLoadTrig) bigLoadTrig.value = true;
+    } catch {}
   };
 
   const triggerSmallLoader = () => {
@@ -670,9 +697,24 @@ const Astro = forwardRef(function Astro(props, ref) {
   useEffect(() => {
     if (!rive || !xAxis || !yAxis) return;
 
+    let lastMouseX = null;
+    let lastMouseY = null;
+    const MOVEMENT_THRESHOLD = 5; // Minimum pixels to consider as actual movement
+
     const handleMouseMove = (e) => {
       // Don't follow mouse while user is typing
       if (isTyping) return;
+      
+      // Check if this is significant movement (not just noise)
+      const isSignificantMovement = 
+        lastMouseX === null || 
+        lastMouseY === null ||
+        Math.abs(e.clientX - lastMouseX) > MOVEMENT_THRESHOLD || 
+        Math.abs(e.clientY - lastMouseY) > MOVEMENT_THRESHOLD;
+      
+      // Update last position
+      lastMouseX = e.clientX;
+      lastMouseY = e.clientY;
       
       // Calculate mouse position relative to Astro's current position
       const relativePos = calculateRelativeMousePosition(e.clientX, e.clientY, center.x, center.y);
@@ -680,41 +722,19 @@ const Astro = forwardRef(function Astro(props, ref) {
       // Use smooth eye tracking instead of direct assignment
       updateEyePosition(relativePos.x, relativePos.y);
       
-      // Additional debug info
-      console.log(`[Astro] Setting target eye values - xAxis: ${relativePos.x}, yAxis: ${relativePos.y}`);
+      // Additional debug info (commented out to reduce noise)
+      // console.log(`[Astro] Setting target eye values - xAxis: ${relativePos.x}, yAxis: ${relativePos.y}`);
       
-      // Reset boredom when mouse moves
-      if (isBored) {
-        console.log("[Astro] Mouse moved - resetting boredom");
-        setIsBored(false);
-        triggerIdle(); // Return to idle when mouse moves
+      // Only reset boredom on significant mouse movement
+      if (isSignificantMovement) {
+        setBoredomState(false, true);
       }
-      
-      // Clear existing boredom timeout
-      if (boredomTimeout.current) {
-        clearTimeout(boredomTimeout.current);
-      }
-      
-      // Set new boredom timeout
-      boredomTimeout.current = setTimeout(() => {
-        if (!isBored && !isTyping) {
-          console.log("[Astro] Mouse idle for 2 minutes - triggering boredom");
-          setIsBored(true);
-          triggerBoredom();
-        }
-      }, TIMING.BOREDOM_TIMEOUT);
     };
 
     window.addEventListener("mousemove", handleMouseMove);
     
     // Start initial boredom timer
-    boredomTimeout.current = setTimeout(() => {
-      if (!isBored && !isTyping) {
-        console.log("[Astro] Initial idle detected - triggering boredom");
-        setIsBored(true);
-        triggerBoredom();
-      }
-    }, TIMING.BOREDOM_TIMEOUT);
+    setBoredomState(false, true);
     
     return () => {
       window.removeEventListener("mousemove", handleMouseMove);
