@@ -419,7 +419,7 @@ const Astro = forwardRef(function Astro(props, ref) {
     const start = { x: center.x, y: center.y };
     const end = { x, y };
 
-    // Setup lead dot with initial black-to-blue fade
+    // Setup lead dot with initial black color for fade effect
     lead.style.opacity = "1";
     lead.style.background = "#000000"; // Start with black
     
@@ -433,11 +433,11 @@ const Astro = forwardRef(function Astro(props, ref) {
       d.style.transform = `scale(${scale})`;
     });
 
-    // Fade the lead dot from black to blue at the very start
+    // Immediately start the black-to-blue fade for the lead dot
     lead.animate(
       [
-        { background: "#000000" }, // Black
-        { background: ANIMATION_CONFIG.DOT_COLOR }  // Blue
+        { background: "#000000" }, // Start black
+        { background: ANIMATION_CONFIG.DOT_COLOR }  // Fade to blue
       ],
       { 
         duration: TIMING.DOT_FADE_DURATION,
