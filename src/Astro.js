@@ -36,8 +36,8 @@ const RIVE_INPUTS = {
 
 // Eye tracking smoothing configuration
 const EYE_TRACKING = {
-  SMOOTHING_FACTOR: 0.1,        // Lower = smoother/slower, Higher = more responsive
-  DELAY_MS: 16,                 // Delay before eyes start following target (in milliseconds)
+  SMOOTHING_FACTOR: 0.03,        // Lower = smoother/slower, Higher = more responsive
+  DELAY_MS: 18,                 // Delay before eyes start following target (in milliseconds)
 };
 
 // Animation Timing Configuration (in milliseconds)
