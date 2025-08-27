@@ -50,6 +50,7 @@ const TIMING = {
   DEBOUNCE_DELAY: 100,          // Debounce for preventing rapid triggers
   ANIMATION_FRAME_DELAY: 16,    // Single frame delay (60fps)
   BOREDOM_TIMEOUT: 7000,    // Time of inactivity before triggering boredom (7 seconds for testing)
+  DOT_FADE_DURATION: 500,      // Duration for the initial black-to-blue fade of the lead dot
 };
 
 // Visual Animation Configuration
@@ -238,12 +239,21 @@ const Astro = forwardRef(function Astro(props, ref) {
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   
   const setBoredomState = (enabled, restartTimer = true) => {
-    if (boredTrig) {
-      boredTrig.value = enabled;
+    // Only set the Rive trigger if it exists
+    try {
+      if (boredTrig) {
+        boredTrig.value = enabled;
+      }
+    } catch (err) {
+      // Silently handle if boredTrig isn't ready yet
     }
-    setIsBored(enabled);
     
-    if (!enabled) {
+    setIsBored(enabled);
+    if(enabled)
+    {
+      setTargetEyePos({ x: 50, y: 50 });
+    }    
+    else {
       // Clear existing timeout when turning off
       if (boredomTimeout.current) {
         clearTimeout(boredomTimeout.current);
@@ -409,8 +419,9 @@ const Astro = forwardRef(function Astro(props, ref) {
     const start = { x: center.x, y: center.y };
     const end = { x, y };
 
-    // Setup lead dot
+    // Setup lead dot with initial black-to-blue fade
     lead.style.opacity = "1";
+    lead.style.background = "#000000"; // Start with black
     
     // Setup trail dots with gradient effect
     trailRefs.current.forEach((d, i) => {
@@ -421,6 +432,19 @@ const Astro = forwardRef(function Astro(props, ref) {
       d.style.opacity = String(opacity);
       d.style.transform = `scale(${scale})`;
     });
+
+    // Fade the lead dot from black to blue at the very start
+    lead.animate(
+      [
+        { background: "#000000" }, // Black
+        { background: ANIMATION_CONFIG.DOT_COLOR }  // Blue
+      ],
+      { 
+        duration: TIMING.DOT_FADE_DURATION,
+        easing: "ease-out",
+        fill: "forwards"
+      }
+    );
 
     await sleep(TIMING.DELAY_BEFORE_MOVE);
     
@@ -612,7 +636,7 @@ const Astro = forwardRef(function Astro(props, ref) {
   const triggerBoredom = () => {
     logStateChange(currentState, "boredom");
     // boredTrig.value = !boredTrig.value;
-   setBoredomState(!boredTrig.value , false);
+   setBoredomState(boredTrig ? !boredTrig.value : false, false);
   };
 
   const triggerBigLoader = () => {
