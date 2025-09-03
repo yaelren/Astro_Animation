@@ -26,7 +26,10 @@ const RIVE_STATES = {
   SHRINK: "Shrink", //trigger
   PULSE: "Pulse", //trigger
   PUBLISH: "Publish", //trigger
-  BLINK: "Blink", //trigger - for periodic blinking animation
+  BLINK: "Blink", //trigger 
+  RED_COLOR: "Red", //astro red amount (0-255),
+  GREEN_COLOR: "Green", //astro green amount (0-255),
+  BLUE_COLOR: "Blue", //astro blue amount (0-255),
 };
 
 // Rive Input Names for eye tracking
@@ -52,9 +55,9 @@ const TIMING = {
   ANIMATION_FRAME_DELAY: 16,    // Single frame delay (60fps)
   BOREDOM_TIMEOUT: 7000,    // Time of inactivity before triggering boredom (7 seconds for testing)
   DOT_FADE_DURATION: 500,      // Duration for the initial black-to-blue fade of the lead dot
-  BLINK_INTERVAL: 4000,        // Time between blinks (4 seconds)
-  BLINK_VARIATION: 2000,        // Random variation in blink timing (+/- 2 seconds)
-  BLINK_MIN_INTERVAL: 2000,     // Minimum time between blinks
+  BLINK_INTERVAL: 3050,        // Base time between blinks (3.05 seconds)
+  BLINK_VARIATION: 2950,        // Random variation in blink timing (+/- 2.95 seconds)
+  BLINK_MIN_INTERVAL: 100,      // Minimum time between blinks (0.1 seconds for double blinks)
 };
 
 // Visual Animation Configuration
