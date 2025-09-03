@@ -152,6 +152,7 @@ export default function App() {
               <div className="button-stack">
                 <button onClick={() => astroRef.current?.triggerIdle()}>Idle</button>
                 <button onClick={() => astroRef.current?.triggerPulse()}>Pulse</button>
+                <button onClick={() => astroRef.current?.triggerBlink()}>Blink</button>
                 <button onClick={() => astroRef.current?.triggerBigLoader()}>Big Loader</button>
                 <button onClick={() => astroRef.current?.triggerSmallLoader()}>Small Loader</button>
                 <button onClick={() => astroRef.current?.triggerPublish()}>Publish</button>

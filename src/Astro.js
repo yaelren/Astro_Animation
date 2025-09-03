@@ -12,7 +12,7 @@ import { useRive, useStateMachineInput } from "@rive-app/react-canvas";
 // ========================================
 
 // Rive File and State Machine Configuration
-const RIVE_FILE = "astro_master_(29).riv";
+const RIVE_FILE = "astro_master_(31_color).riv";
 const STATE_MACHINE_NAME = "Astro State Machine";
 
 // Rive State Names (these must match your Rive file exactly)
@@ -26,6 +26,7 @@ const RIVE_STATES = {
   SHRINK: "Shrink", //trigger
   PULSE: "Pulse", //trigger
   PUBLISH: "Publish", //trigger
+  BLINK: "Blink", //trigger - for periodic blinking animation
 };
 
 // Rive Input Names for eye tracking
@@ -51,6 +52,9 @@ const TIMING = {
   ANIMATION_FRAME_DELAY: 16,    // Single frame delay (60fps)
   BOREDOM_TIMEOUT: 7000,    // Time of inactivity before triggering boredom (7 seconds for testing)
   DOT_FADE_DURATION: 500,      // Duration for the initial black-to-blue fade of the lead dot
+  BLINK_INTERVAL: 4000,        // Time between blinks (4 seconds)
+  BLINK_VARIATION: 2000,        // Random variation in blink timing (+/- 2 seconds)
+  BLINK_MIN_INTERVAL: 2000,     // Minimum time between blinks
 };
 
 // Visual Animation Configuration
@@ -191,6 +195,7 @@ const Astro = forwardRef(function Astro(props, ref) {
   const boredomTimeout = useRef(null);
   const eyeTrackingAnimationId = useRef(null);
   const eyeDelayTimeout = useRef(null);
+  const blinkInterval = useRef(null);
 
   // ========== RIVE SETUP ==========
   const { rive, RiveComponent } = useRive({
@@ -215,6 +220,7 @@ const Astro = forwardRef(function Astro(props, ref) {
   const shrinkTrig = useStateMachineInput(rive, STATE_MACHINE_NAME, RIVE_STATES.SHRINK);
   const pulseTrig = useStateMachineInput(rive, STATE_MACHINE_NAME, RIVE_STATES.PULSE);
   const publishTrig = useStateMachineInput(rive, STATE_MACHINE_NAME, RIVE_STATES.PUBLISH);
+  const blinkTrig = useStateMachineInput(rive, STATE_MACHINE_NAME, RIVE_STATES.BLINK);
 
   // Get eye tracking inputs
   const xAxis = useStateMachineInput(rive, STATE_MACHINE_NAME, RIVE_INPUTS.MOUSE_X);
@@ -666,9 +672,43 @@ const Astro = forwardRef(function Astro(props, ref) {
     try { publishTrig?.fire(); } catch {}
   };
 
+  const triggerBlink = () => {
+    logStateChange(currentState, "blink");
+    try { blinkTrig?.fire(); } catch {}
+  };
+
   // ========================================
   // ========== EFFECTS & SETUP ============
   // ========================================
+
+  // Blinking timer effect
+  useEffect(() => {
+    if (!blinkTrig) return;
+
+    const scheduleNextBlink = () => {
+      // Calculate random interval within configured range
+      const variation = (Math.random() - 0.5) * TIMING.BLINK_VARIATION * 2;
+      const interval = Math.max(TIMING.BLINK_MIN_INTERVAL, TIMING.BLINK_INTERVAL + variation);
+      
+      blinkInterval.current = setTimeout(() => {
+        // Only blink if not in special states (moving, bored, etc.)
+        if (!isAnimating.current && !riveHidden && !isBored) {
+          triggerBlink();
+        }
+        scheduleNextBlink(); // Schedule the next blink
+      }, interval);
+    };
+
+    // Start the blinking cycle
+    scheduleNextBlink();
+
+    // Cleanup on unmount
+    return () => {
+      if (blinkInterval.current) {
+        clearTimeout(blinkInterval.current);
+      }
+    };
+  }, [blinkTrig, isAnimating, riveHidden, isBored]);
 
   // Smooth eye tracking animation loop
   useEffect(() => {
@@ -765,6 +805,7 @@ const Astro = forwardRef(function Astro(props, ref) {
     triggerShrink,
     triggerPulse,
     triggerPublish,
+    triggerBlink,
     
     // Utility Methods
     cancelAnimations: () => {
