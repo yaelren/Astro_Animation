@@ -162,6 +162,17 @@ export default function App() {
                 <button onClick={() => astroRef.current?.triggerShrink()}>Shrink</button>
               </div>
             </div>
+            
+            {/* Color Controls Section */}
+            <div className="control-section">
+              <h3>🎨 Astro Colors</h3>
+              <div className="button-stack">
+                <button onClick={() => astroRef.current?.changeAstroColor('green')} style={{ background: '#7DD280', color: 'white' }}>Green</button>
+                <button onClick={() => astroRef.current?.changeAstroColor('pink')} style={{ background: '#F58A90', color: 'white' }}>Pink</button>
+                <button onClick={() => astroRef.current?.changeAstroColor('purple')} style={{ background: '#A872F6', color: 'white' }}>Purple</button>
+                <button onClick={() => astroRef.current?.changeAstroColor('black')} style={{ background: '#000000', color: 'white' }}>Black</button>
+              </div>
+            </div>
           </aside>
         </div>
       </div>

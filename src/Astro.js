@@ -40,8 +40,8 @@ const RIVE_INPUTS = {
 
 // Eye tracking smoothing configuration
 const EYE_TRACKING = {
-  SMOOTHING_FACTOR: 0.07,        // Lower = smoother/slower, Higher = more responsive
-  DELAY_MS: 16,                 // Delay before eyes start following target (in milliseconds)
+  SMOOTHING_FACTOR: 0.2,        // Lower = smoother/slower, Higher = more responsive
+  DELAY_MS: 3,                 // Delay before eyes start following target (in milliseconds)
 };
 
 // Animation Timing Configuration (in milliseconds)
@@ -113,6 +113,14 @@ const ASTRO_SIZE = {
   WIDTH: 90,                     // Width of Astro character
   HEIGHT: 90,                    // Height of Astro character
   Z_INDEX: 20000,                // Z-index to ensure Astro appears on top
+};
+
+// Predefined color schemes for Astro
+const ASTRO_COLORS = {
+  green: { r: 125, g: 210, b: 128 },
+  pink: { r: 245, g: 138, b: 144 },
+  purple: { r: 168, g: 114, b: 246 },
+  black: { r: 0, g: 0, b: 0 },
 };
 
 // ========================================
@@ -224,6 +232,11 @@ const Astro = forwardRef(function Astro(props, ref) {
   const pulseTrig = useStateMachineInput(rive, STATE_MACHINE_NAME, RIVE_STATES.PULSE);
   const publishTrig = useStateMachineInput(rive, STATE_MACHINE_NAME, RIVE_STATES.PUBLISH);
   const blinkTrig = useStateMachineInput(rive, STATE_MACHINE_NAME, RIVE_STATES.BLINK);
+  
+  // Get color inputs for Astro customization
+  const redInput = useStateMachineInput(rive, STATE_MACHINE_NAME, RIVE_STATES.RED_COLOR);
+  const greenInput = useStateMachineInput(rive, STATE_MACHINE_NAME, RIVE_STATES.GREEN_COLOR);
+  const blueInput = useStateMachineInput(rive, STATE_MACHINE_NAME, RIVE_STATES.BLUE_COLOR);
 
   // Get eye tracking inputs
   const xAxis = useStateMachineInput(rive, STATE_MACHINE_NAME, RIVE_INPUTS.MOUSE_X);
@@ -680,6 +693,24 @@ const Astro = forwardRef(function Astro(props, ref) {
     try { blinkTrig?.fire(); } catch {}
   };
 
+  const changeAstroColor = (colorName) => {
+    const color = ASTRO_COLORS[colorName];
+    if (!color) {
+      console.warn(`[Astro] Unknown color: ${colorName}. Available: ${Object.keys(ASTRO_COLORS).join(', ')}`);
+      return;
+    }
+    
+    console.log(`[Astro] Changing color to ${colorName}:`, color);
+    
+    try {
+      if (redInput) redInput.value = color.r;
+      if (greenInput) greenInput.value = color.g;
+      if (blueInput) blueInput.value = color.b;
+    } catch (err) {
+      console.error(`[Astro] Error setting color:`, err);
+    }
+  };
+
   // ========================================
   // ========== EFFECTS & SETUP ============
   // ========================================
@@ -820,6 +851,7 @@ const Astro = forwardRef(function Astro(props, ref) {
         await moveToPosition(x, y, { endState: 'idle' });
       });
     },
+    changeAstroColor,
   }));
 
   // ========================================
