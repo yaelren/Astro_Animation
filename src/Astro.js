@@ -42,6 +42,7 @@ const RIVE_INPUTS = {
 const EYE_TRACKING = {
   SMOOTHING_FACTOR: 0.2,        // Lower = smoother/slower, Higher = more responsive
   DELAY_MS: 3,                 // Delay before eyes start following target (in milliseconds)
+  BOREDOM_EYE_PLACEMENT: { x: 10, y: 10 }, // Where eyes look when bored (0-100 range)
 };
 
 // Animation Timing Configuration (in milliseconds)
@@ -273,7 +274,7 @@ const Astro = forwardRef(function Astro(props, ref) {
     setIsBored(enabled);
     if(enabled)
     {
-      setTargetEyePos({ x: 50, y: 50 });
+      setTargetEyePos(EYE_TRACKING.BOREDOM_EYE_PLACEMENT);
     }    
     else {
       // Clear existing timeout when turning off
