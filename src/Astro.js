@@ -5,6 +5,8 @@ import React, {
   forwardRef,
   useState,
 } from "react";
+// IMPORTANT: Must use @rive-app/react-webgl2 for vector feathering (glow around eyes)
+// Canvas and WebGL1 renderers do NOT support vector feathering effects
 import { useRive, useStateMachineInput } from "@rive-app/react-webgl2";
 
 // ========================================
