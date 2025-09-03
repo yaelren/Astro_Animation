@@ -5,7 +5,7 @@ import React, {
   forwardRef,
   useState,
 } from "react";
-import { useRive, useStateMachineInput } from "@rive-app/react-canvas";
+import { useRive, useStateMachineInput } from "@rive-app/react-webgl2";
 
 // ========================================
 // ========== CONFIGURATION ==============
@@ -214,6 +214,7 @@ const Astro = forwardRef(function Astro(props, ref) {
     src: RIVE_FILE,
     stateMachines: STATE_MACHINE_NAME,
     autoplay: true,
+    useOffscreenRenderer: true, // Recommended for WebGL2
     onLoad: () => {
       console.log("[Astro] Rive file loaded successfully:", RIVE_FILE);
     },
